@@ -4,8 +4,11 @@ import requests
 import time
 import math
 import random
+import json
+
 from random import gauss
 from flask import render_template
+from flask import request
 
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
@@ -26,6 +29,8 @@ API_SERVICE_NAME = 'fitness'
 API_VERSION = 'v1'
 
 app = flask.Flask(__name__)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200
+
 
 # Note: A secret key is included in the sample so that it works.
 # If you use this code in your application, replace this with a truly secret
@@ -44,7 +49,7 @@ def index():
 def ind():
     return render_template('/image.html')
 
-@app.route('/test')
+@app.route('/test', methods=["GET","POST"])
 def test_api_request():
     if 'credentials' not in flask.session:
         return flask.redirect('authorize')
@@ -53,10 +58,18 @@ def test_api_request():
     credentials = google.oauth2.credentials.Credentials(
         **flask.session['credentials'])
 
+    monthPast = 4
+    if request.method == "POST":
+        if not request.form.get("month"):
+            return render_template('index')
+        else:
+            monthPast = int(request.form.get("month"))
+            if(monthPast>24 or monthPast<1):
+                return render_template('/index.html')
+
     def current_milli_time():
         return round(time.time() * 1000)
 
-    monthPast = 4
     now = current_milli_time()
     day = 86400000
     month = 31*day
@@ -65,25 +78,25 @@ def test_api_request():
     heartPointsList=[]
 
     with build(API_SERVICE_NAME, API_VERSION,credentials = credentials) as fit:  
-        for timeU in range(lastTime,now,2*month):
+        for timeU in range(lastTime,now,month):
             body = {
                 "aggregateBy": [{
                     "dataSourceId": "derived:com.google.heart_minutes:com.google.android.gms:merge_heart_minutes",
                     "dataTypeName": "com.google.heart_minutes"
                     },],
                 "bucketByTime": { "durationMillis": 86400000 },
-                "startTimeMillis": (timeU-2*month), 
+                "startTimeMillis": (timeU-month), 
                 "endTimeMillis": timeU
             }
 
-            request = fit.users().dataset().aggregate(userId="me",body=body)
+            requestFit = fit.users().dataset().aggregate(userId="me",body=body)
             
             try:
-                response = request.execute()
+                response = requestFit.execute()
             except HttpError as e:
                 print('Error response status code : {0}, reason : {1}'.format(e.status_code, e.error_details))
 
-            response = request.execute()
+            response = requestFit.execute()
 
             bucket = response['bucket']
             
@@ -98,15 +111,14 @@ def test_api_request():
                                 heart = val['fpVal']
                                 heartPointsList.append(heart)
 
-    listToCord(heartPointsList,monthPast)
-
+    coords = listToCord(heartPointsList,monthPast)
 
     # Save credentials back to session in case access token was refreshed.
     # ACTION ITEM: In a production app, you likely want to save these
     #              credentials in a persistent database instead.
     flask.session['credentials'] = credentials_to_dict(credentials)
 
-    return flask.jsonify(**response)
+    return render_template('/image.html', GreekStatue = json.dumps(coords))
 
 
 @app.route('/authorize')
@@ -260,11 +272,12 @@ def listToCord(lst,monthPast):
         x = bottomX + radius*math.cos(angle) + gauss(0,4)
         y = bottomY - 1.2*radius*math.sin(angle) 
         coords.append([x,y])
-        
         angle += delta
 
         # print(coords)
-    
+
+    return coords
+
     save_path = "/mnt/c/Users/Asaf's PC/Desktop/תכנות/spaceCol/2d-space-colonization-experiments/experiments/from-images/js"
     fileName = os.path.join(save_path, 'AttractorPatterns.js')         
 
