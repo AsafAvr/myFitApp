@@ -78,8 +78,6 @@ def test_api_request():
     heartPointsList=[]
 
     with build(API_SERVICE_NAME, API_VERSION,credentials = credentials) as fit:  
-        if not fit:
-            return "You don't have the google fit app!"
         for timeU in range(lastTime,now,month):
             body = {
                 "aggregateBy": [{
@@ -95,8 +93,8 @@ def test_api_request():
             
             try:
                 response = requestFit.execute()
-            except HttpError as e:
-                print('Error response status code : {0}, reason : {1}'.format(e.status_code, e.error_details))
+            except:
+                return nogooglefit()
 
             response = requestFit.execute()
 
@@ -122,6 +120,9 @@ def test_api_request():
 
     return render_template('/image.html', GreekStatue = json.dumps(coords))
 
+@app.route('/nogooglefit')
+def nogooglefit():
+    return render_template('/nogoogle.html')
 
 @app.route('/authorize')
 def authorize():
