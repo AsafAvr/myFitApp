@@ -78,6 +78,8 @@ def test_api_request():
     heartPointsList=[]
 
     with build(API_SERVICE_NAME, API_VERSION,credentials = credentials) as fit:  
+        if not fit:
+            return "You don't have the google fit app!"
         for timeU in range(lastTime,now,month):
             body = {
                 "aggregateBy": [{
@@ -199,7 +201,7 @@ def clear_credentials():
 def google_verification():
     return render_template('google2b79f3b5649bc9da.html')
 
-    
+
 def credentials_to_dict(credentials):
     return {'token': credentials.token,
             'refresh_token': credentials.refresh_token,
