@@ -48,7 +48,6 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 @app.route('/')
 def index():
-    return Hello
     if 'credentials' not in flask.session:
         return render_template('/index.html' ,login = 0)
     else:

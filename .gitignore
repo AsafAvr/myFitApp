@@ -1,4 +1,6 @@
 client_secrets.json
+my_secrets.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
