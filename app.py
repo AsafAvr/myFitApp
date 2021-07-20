@@ -53,9 +53,6 @@ def index():
     else:
         return render_template('/index.html' ,login = 1)
 
-@app.route('/tree')
-def ind():
-    return render_template('/image.html')
 
 @app.route('/test', methods=["GET","POST"])
 def test_api_request():
@@ -212,27 +209,6 @@ def credentials_to_dict(credentials):
             'client_secret': credentials.client_secret,
             'scopes': credentials.scopes}
 
-def print_index_table():
-    return ('<table>' +
-            '<tr><td><a href="/test">Test an API request</a></td>' +
-            '<td>Submit an API request and see a formatted JSON response. ' +
-            '    Go through the authorization flow if there are no stored ' +
-            '    credentials for the user.</td></tr>' +
-            '<tr><td><a href="/authorize">Test the auth flow directly</a></td>' +
-            '<td>Go directly to the authorization flow. If there are stored ' +
-            '    credentials, you still might not be prompted to reauthorize ' +
-            '    the application.</td></tr>' +
-            '<tr><td><a href="/revoke">Revoke current credentials</a></td>' +
-            '<td>Revoke the access token associated with the current user ' +
-            '    session. After revoking credentials, if you go to the test ' +
-            '    page, you should see an <code>invalid_grant</code> error.' +
-            '</td></tr>' +
-            '<tr><td><a href="/clear">Clear Flask session credentials</a></td>' +
-            '<td>Clear the access token currently stored in the user session. ' +
-            '    After clearing the token, if you <a href="/test">test the ' +
-            '    API request</a> again, you should go back to the auth flow.' +
-            '</td></tr></table>')
-
 
 def listToCord(lst,monthPast):
     threshold = 60
@@ -291,10 +267,11 @@ if __name__ == '__main__':
     # When running locally, disable OAuthlib's HTTPs verification.
     # ACTION ITEM for developers:
     #     When running in production *do not* leave this option enabled.
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '0'
+
+    # os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
     # Specify a hostname and port that are set as a valid redirect URI
     # for your API project in the Google API Console.
     
-    # app.run('localhost', 8080, debug=True)
-    app.run()
+    app.run('localhost', 8080, debug=True)
+    # app.run()
