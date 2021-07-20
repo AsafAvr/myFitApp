@@ -9,7 +9,6 @@ import json
 from random import gauss
 from flask import render_template
 from flask import request
-from flask import Flask
 
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
