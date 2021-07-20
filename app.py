@@ -195,7 +195,11 @@ def clear_credentials():
         del flask.session['credentials']
     return index()
 
+@app.route('/google2b79f3b5649bc9da.html')
+def google_verification():
+    return render_template('google2b79f3b5649bc9da.html')
 
+    
 def credentials_to_dict(credentials):
     return {'token': credentials.token,
             'refresh_token': credentials.refresh_token,
