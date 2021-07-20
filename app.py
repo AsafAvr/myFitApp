@@ -18,7 +18,8 @@ from googleapiclient.discovery import build
 
 # This variable specifies the name of a file that contains the OAuth 2.0
 # information for this application, including its client_id and client_secret.
-CLIENT_SECRETS_FILE = "client_secrets.json"
+
+# CLIENT_SECRETS_FILE = "client_secrets.json"
 
 # This OAuth 2.0 access scope allows for full read/write access to the
 # authenticated user's account and requires requests to use an SSL connection.
@@ -35,7 +36,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200
 # Note: A secret key is included in the sample so that it works.
 # If you use this code in your application, replace this with a truly secret
 # key. See https://flask.palletsprojects.com/quickstart/#sessions.
-app.secret_key = 'REPLACE ME - this value is here as a placeholder.'
+app.secret_key = "b'X\xc4E\xa7^\xbc\x90\x14\xd0^\x81\xf1"\xc8\x11\x84'"
 
 
 @app.route('/')
@@ -292,7 +293,7 @@ if __name__ == '__main__':
     # When running locally, disable OAuthlib's HTTPs verification.
     # ACTION ITEM for developers:
     #     When running in production *do not* leave this option enabled.
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '0'
 
     # Specify a hostname and port that are set as a valid redirect URI
     # for your API project in the Google API Console.
