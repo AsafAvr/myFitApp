@@ -65,7 +65,6 @@ six==1.16.0
 systemd-python==234
 traitlets==4.3.2
 Twisted==17.9.0
-unattended-upgrades==0.1
 uritemplate==3.0.1
 urllib3==1.26.6
 wcwidth==0.1.7
