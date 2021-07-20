@@ -21,14 +21,6 @@ load_dotenv()
 # This variable specifies the name of a file that contains the OAuth 2.0
 # information for this application, including its client_id and client_secret.
 
-client_secrets_dict= json.loads(os.getenv("CLIENT_SECRETS"))
-
-with open('my_secrets.json', 'w') as fp:
-    json.dump(client_secrets_dict, fp)
-
-CLIENT_SECRETS_FILE = "my_secrets.json"
-
-
 # This OAuth 2.0 access scope allows for full read/write access to the
 # authenticated user's account and requires requests to use an SSL connection.
 SCOPES = ["https://www.googleapis.com/auth/fitness.activity.read",
@@ -40,10 +32,6 @@ API_VERSION = 'v1'
 app = flask.Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200
 
-
-# Note: A secret key is included in the sample so that it works.
-# If you use this code in your application, replace this with a truly secret
-# key. See https://flask.palletsprojects.com/quickstart/#sessions.
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 @app.route('/')
@@ -52,6 +40,13 @@ def index():
         return render_template('/index.html' ,login = 0)
     else:
         return render_template('/index.html' ,login = 1)
+
+client_secrets_dict= json.loads(os.getenv("CLIENT_SECRETS"))
+
+with open('my_secrets.json', 'w') as fp:
+    json.dump(client_secrets_dict, fp)
+
+CLIENT_SECRETS_FILE = "my_secrets.json"
 
 
 @app.route('/test', methods=["GET","POST"])
@@ -273,5 +268,5 @@ if __name__ == '__main__':
     # Specify a hostname and port that are set as a valid redirect URI
     # for your API project in the Google API Console.
     
-    # app.run('localhost', 8080, debug=True)
-    app.run()
+    app.run('localhost', 8080, debug=True)
+    # app.run()
