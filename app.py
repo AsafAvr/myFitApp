@@ -34,12 +34,15 @@ app.secret_key = 'REPLACE ME - this value is here as a placeholder.'
 
 
 @app.route('/')
-def index(): 
-    return print_index_table()
+def index():
+    if 'credentials' not in flask.session:
+        return render_template('/index.html' ,login = 0)
+    else:
+        return render_template('/index.html' ,login = 1)
 
-@app.route('/index')
+@app.route('/tree')
 def ind():
-    return render_template('/index.html')
+    return render_template('/image.html')
 
 @app.route('/test')
 def test_api_request():
@@ -151,7 +154,7 @@ def oauth2callback():
     credentials = flow.credentials
     flask.session['credentials'] = credentials_to_dict(credentials)
 
-    return flask.redirect(flask.url_for('test_api_request'))
+    return flask.redirect(flask.url_for('index'))
 
 
 @app.route('/revoke')
@@ -178,8 +181,7 @@ def revoke():
 def clear_credentials():
     if 'credentials' in flask.session:
         del flask.session['credentials']
-    return ('Credentials have been cleared.<br><br>' +
-            print_index_table())
+    return index()
 
 
 def credentials_to_dict(credentials):
