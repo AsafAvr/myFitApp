@@ -15,11 +15,19 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 from googleapiclient.discovery import build
 
+from dotenv import load_dotenv
+load_dotenv()
 
 # This variable specifies the name of a file that contains the OAuth 2.0
 # information for this application, including its client_id and client_secret.
 
-# CLIENT_SECRETS_FILE = "client_secrets.json"
+client_secrets_dict= json.loads(os.getenv("CLIENT_SECRETS"))
+
+with open('my_secrets.json', 'w') as fp:
+    json.dump(client_secrets_dict, fp)
+
+CLIENT_SECRETS_FILE = "my_secrets.json"
+
 
 # This OAuth 2.0 access scope allows for full read/write access to the
 # authenticated user's account and requires requests to use an SSL connection.
@@ -36,8 +44,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200
 # Note: A secret key is included in the sample so that it works.
 # If you use this code in your application, replace this with a truly secret
 # key. See https://flask.palletsprojects.com/quickstart/#sessions.
-app.secret_key = "b'X\xc4E\xa7^\xbc\x90\x14\xd0^\x81\xf1"\xc8\x11\x84'"
-
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 @app.route('/')
 def index():
@@ -278,15 +285,6 @@ def listToCord(lst,monthPast):
         # print(coords)
 
     return coords
-
-    save_path = "/mnt/c/Users/Asaf's PC/Desktop/תכנות/spaceCol/2d-space-colonization-experiments/experiments/from-images/js"
-    fileName = os.path.join(save_path, 'AttractorPatterns.js')         
-
-    with open(fileName,'w') as f:
-        f.write('export let GreekStatue = [\n')
-        for item in coords:
-            f.write("%s,\n" %item)
-        f.write(']')
 
 
 if __name__ == '__main__':
