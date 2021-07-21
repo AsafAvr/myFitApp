@@ -1386,28 +1386,28 @@ let resetNetwork = () => {
     );
 
     network.addNode(
-      new Node(
+      new _core_Node__WEBPACK_IMPORTED_MODULE_2__["default"](
         null,
-        new Vec2(
+        new vec2__WEBPACK_IMPORTED_MODULE_0__(
           window.innerWidth/2 +5,
-          window.innerHeight -40
+          window.innerHeight -20
         ),
         false,
         ctx,
-        Settings
+        _Settings__WEBPACK_IMPORTED_MODULE_7__["default"]
       )
     );
 
     network.addNode(
-      new Node(
+      new _core_Node__WEBPACK_IMPORTED_MODULE_2__["default"](
         null,
-        new Vec2(
-          window.innerWidth/2 ,
-          window.innerHeight -60
+        new vec2__WEBPACK_IMPORTED_MODULE_0__(
+          window.innerWidth/2 -5,
+          window.innerHeight -40
         ),
         false,
         ctx,
-        Settings
+        _Settings__WEBPACK_IMPORTED_MODULE_7__["default"]
       )
     );
   }
