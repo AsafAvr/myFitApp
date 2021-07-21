@@ -1390,7 +1390,20 @@ let resetNetwork = () => {
         null,
         new Vec2(
           window.innerWidth/2 +5,
-          window.innerHeight -5
+          window.innerHeight -40
+        ),
+        false,
+        ctx,
+        Settings
+      )
+    );
+
+    network.addNode(
+      new Node(
+        null,
+        new Vec2(
+          window.innerWidth/2 ,
+          window.innerHeight -60
         ),
         false,
         ctx,
