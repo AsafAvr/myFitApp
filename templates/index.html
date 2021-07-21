@@ -7,16 +7,34 @@
     {% else %}
         <a href="/clear"> Logout </a>
         <br> 
-
+        <select name = "w"  value = 0>w</select>
+        <select name = "h"  value = 0>w</select>
+        
         <form action="/test" method="POST">
+            
+            
+
             <label>Choose how much months look back:</label>
             <select name = "month">
                 {%for i in range(1,13) %}
                     <option value={{i}}> {{i}}</option>
                 {% endfor %}
             </select>
+            <input type="hidden" id = "w" name="w" value = 0>
+            <input type="hidden" id = "h" name="h" value = 0> 
+
+            <script>
+                var w = window.innerWidth;
+                var h = window.innerHeight;
+                console.log(w)
+                console.log(h)
+                document.getElementById("w").value = w
+                document.getElementById("h").value = h
+            </script>
+
             <input type="submit" value="Submit">
           </form>
+
     {%endif%}
 
 {% endblock %}

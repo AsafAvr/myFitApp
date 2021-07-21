@@ -1376,8 +1376,8 @@ let resetNetwork = () => {
       new _core_Node__WEBPACK_IMPORTED_MODULE_2__["default"](
         null,
         new vec2__WEBPACK_IMPORTED_MODULE_0__(
-          window.innerWidth/2,
-          window.innerHeight 
+          window.innerWidth/2 -5,
+          window.innerHeight -5
         ),
         false,
         ctx,
@@ -1385,18 +1385,18 @@ let resetNetwork = () => {
       )
     );
 
-    // network.addNode(
-    //   new Node(
-    //     null,
-    //     new Vec2(
-    //       window.innerWidth/2 ,
-    //       window.innerHeight 
-    //     ),
-    //     false,
-    //     ctx,
-    //     Settings
-    //   )
-    // );
+    network.addNode(
+      new Node(
+        null,
+        new Vec2(
+          window.innerWidth/2 +5,
+          window.innerHeight -5
+        ),
+        false,
+        ctx,
+        Settings
+      )
+    );
   }
 
 let drawText = () => {

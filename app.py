@@ -66,7 +66,11 @@ def test_api_request():
             monthPast = int(request.form.get("month"))
             if(monthPast>24 or monthPast<1):
                 return render_template('/index.html')
-
+            bottomX = int(request.form.get("w"))
+            bottomY = int(request.form.get("h"))
+            print(bottomX)
+            print(bottomY)
+            
     def current_milli_time():
         return round(time.time() * 1000)
 
@@ -111,7 +115,7 @@ def test_api_request():
                                 heart = val['fpVal']
                                 heartPointsList.append(heart)
 
-    coords = listToCord(heartPointsList,monthPast)
+    coords = listToCord(heartPointsList,monthPast,bottomX,bottomY)
 
     # Save credentials back to session in case access token was refreshed.
     # ACTION ITEM: In a production app, you likely want to save these
@@ -212,10 +216,10 @@ def credentials_to_dict(credentials):
             'scopes': credentials.scopes}
 
 
-def listToCord(lst,monthPast):
+def listToCord(lst,monthPast,bottomX,bottomY):
     threshold = 60
-    bottomX = 1536/2
-    bottomY = 800
+    bottomX = bottomX/2
+    bottomY = bottomY
     angle = float(-math.pi/10)
     delta = float(math.pi/5)
     radius = 0
