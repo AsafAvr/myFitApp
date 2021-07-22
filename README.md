@@ -10,7 +10,7 @@ Fetching from the Google Fit API data of your running habits from each day.
 The tree grows with 7 branches - each day of the week, if you don't run it would be without sub-branches
 
 run is defined by 30 heart-points a day (at least 30 minutes run)
-![image](https://user-images.githubusercontent.com/74145848/126620500-4b34bdcd-adc0-4508-b427-1c15bf96fe73.png| width=100)
+![image](https://user-images.githubusercontent.com/74145848/126620500-4b34bdcd-adc0-4508-b427-1c15bf96fe73.png)
 
 each running is a sub-branch vertical to the main branch of the day.
 
