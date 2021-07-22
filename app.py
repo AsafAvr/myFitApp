@@ -9,6 +9,7 @@ import json
 from random import gauss
 from flask import render_template
 from flask import request
+from flask_wtf.csrf import CSRFProtect
 
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
@@ -31,6 +32,8 @@ API_VERSION = 'v1'
 
 app = flask.Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 43200
+csrf = CSRFProtect()
+csrf.init_app(app)
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
@@ -61,11 +64,13 @@ def test_api_request():
     monthPast = 4
     if request.method == "POST":
         if not request.form.get("month"):
-            return render_template('index')
+            return flask.redirect('/')
         else:
+            if not request.form.get("month").isnumeric():
+                return flask.redirect('/')
             monthPast = int(request.form.get("month"))
             if(monthPast>24 or monthPast<1):
-                return render_template('/index.html')
+                return flask.redirect('/')
             bottomX = int(request.form.get("w"))
             bottomY = int(request.form.get("h"))
             print(bottomX)
@@ -274,10 +279,10 @@ if __name__ == '__main__':
     # ACTION ITEM for developers:
     #     When running in production *do not* leave this option enabled.
 
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    # os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
     # Specify a hostname and port that are set as a valid redirect URI
     # for your API project in the Google API Console.
     
-    app.run('localhost', 8079, debug=True)
-    # app.run()
+    # app.run('localhost', 8080, debug=True)
+    app.run()

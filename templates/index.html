@@ -89,7 +89,6 @@
         <a href="/clear"> Logout </a>
         <br> 
         <form action="/test" method="POST">            
-
             <label>Choose how much months look back:</label>
             <select name = "month">
                 {%for i in range(1,13) %}
@@ -98,7 +97,7 @@
             </select>
             <input type="hidden" id = "w" name="w" value = 0>
             <input type="hidden" id = "h" name="h" value = 0> 
-
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <script>
                 var w = window.innerWidth;
                 var h = window.innerHeight;
