@@ -1,4 +1,4 @@
-# myFitApp
+# myFitTreeApp
 currently runs on https://myfittreeapp.herokuapp.com/clear (for test users only)
 
 Visualize your running habits with a growing tree!
