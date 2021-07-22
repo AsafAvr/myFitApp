@@ -1390,7 +1390,7 @@ let resetNetwork = () => {
         null,
         new vec2__WEBPACK_IMPORTED_MODULE_0__(
           window.innerWidth/2 +5,
-          window.innerHeight -20
+          window.innerHeight -15
         ),
         false,
         ctx,
@@ -1398,18 +1398,6 @@ let resetNetwork = () => {
       )
     );
 
-    network.addNode(
-      new _core_Node__WEBPACK_IMPORTED_MODULE_2__["default"](
-        null,
-        new vec2__WEBPACK_IMPORTED_MODULE_0__(
-          window.innerWidth/2 -5,
-          window.innerHeight -40
-        ),
-        false,
-        ctx,
-        _Settings__WEBPACK_IMPORTED_MODULE_7__["default"]
-      )
-    );
   }
 
 let drawText = () => {
