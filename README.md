@@ -1,6 +1,6 @@
 # myFitTreeApp
 
-Visualize your running habits with a growing tree!
+Visualize your runs through last months with a growing tree simulation.
 
 Using jasonwebb's space colonization algorithm https://github.com/jasonwebb/2d-space-colonization-experiments
 
