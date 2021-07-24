@@ -1,5 +1,6 @@
 client_secrets.json
 my_secrets.json
+fitenv/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
