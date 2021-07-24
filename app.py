@@ -44,12 +44,15 @@ def index():
     else:
         return render_template('/index.html' ,login = 1)
 
-client_secrets_dict= json.loads(os.getenv("CLIENT_SECRETS"))
 
-with open('my_secrets.json', 'w') as fp:
-    json.dump(client_secrets_dict, fp)
+client_secrets_config = json.loads(os.getenv("CLIENT_SECRETS"))
 
-CLIENT_SECRETS_FILE = "my_secrets.json"
+
+# another option - saving the SECRETS_API as a FILE - Less Safety
+# client_secrets_dict= json.loads(os.getenv("CLIENT_SECRETS"))
+# with open('my_secrets.json', 'w') as fp:
+#     json.dump(client_secrets_dict, fp)
+# CLIENT_SECRETS_FILE = "my_secrets.json"
 
 
 @app.route('/test', methods=["GET","POST"])
@@ -136,8 +139,13 @@ def nogooglefit():
 @app.route('/authorize')
 def authorize():
     # Create flow instance to manage the OAuth 2.0 Authorization Grant Flow steps.
-    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, scopes=SCOPES)
+
+    # flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+    #     CLIENT_SECRETS_FILE, scopes=SCOPES)
+
+    flow = google_auth_oauthlib.flow.Flow.from_client_config(
+        client_config = client_secrets_config
+    , scopes=SCOPES)
 
     # The URI created here must exactly match one of the authorized redirect URIs
     # for the OAuth 2.0 client, which you configured in the API Console. If this
@@ -164,8 +172,8 @@ def oauth2callback():
     # verified in the authorization server response.
     state = flask.session['state']
 
-    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
+    flow = google_auth_oauthlib.flow.Flow.from_client_config(
+        client_config=client_secrets_config, scopes=SCOPES, state=state)
     flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
 
     # Use the authorization server's response to fetch the OAuth 2.0 tokens.
