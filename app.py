@@ -220,6 +220,50 @@ def google_verification():
     return render_template('google2b79f3b5649bc9da.html')
 
 
+def generate_mock_data(monthPast):
+    """Generate mock heart-point data simulating a runner who trains 2-3 times per week."""
+    random.seed(42)
+    total_days = monthPast * 31
+    heartPointsList = []
+    for week_start in range(0, total_days, 7):
+        days_this_week = min(7, total_days - week_start)
+        run_days = random.sample(range(days_this_week), k=min(random.choice([2, 2, 3]), days_this_week))
+        for d in range(days_this_week):
+            if d in run_days:
+                heartPointsList.append(random.randint(70, 120))
+            else:
+                heartPointsList.append(random.randint(0, 30))
+    random.seed()
+    return heartPointsList
+
+
+@app.route('/demo', methods=["GET", "POST"])
+@csrf.exempt
+def demo():
+    monthPast = 4
+    bottomX = 1200
+    bottomY = 800
+    if request.method == "POST":
+        if request.form.get("month") and request.form.get("month").isnumeric():
+            monthPast = int(request.form.get("month"))
+            if monthPast > 24 or monthPast < 1:
+                monthPast = 4
+        if request.form.get("w"):
+            try:
+                bottomX = int(request.form.get("w"))
+            except ValueError:
+                pass
+        if request.form.get("h"):
+            try:
+                bottomY = int(request.form.get("h"))
+            except ValueError:
+                pass
+
+    heartPointsList = generate_mock_data(monthPast)
+    coords = listToCord(heartPointsList, monthPast, bottomX, bottomY)
+    return render_template('/image.html', GreekStatue=json.dumps(coords))
+
+
 def credentials_to_dict(credentials):
     return {'token': credentials.token,
             'refresh_token': credentials.refresh_token,
