@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FitTree — Your Running Tree</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: #1a2a3a; }
+    canvas { display: block; }
+
+    #back-link {
+      position: fixed; top: 14px; left: 14px; z-index: 10;
+      color: #fff; text-decoration: none; font-size: 13px; font-weight: 500;
+      background: rgba(0,0,0,0.35); padding: 7px 16px;
+      border-radius: 20px; backdrop-filter: blur(6px);
+      transition: background .2s;
+    }
+    #back-link:hover { background: rgba(0,0,0,0.55); }
+
+    #share-btn {
+      position: fixed; top: 14px; right: 14px; z-index: 10;
+      color: #fff; text-decoration: none; font-size: 13px; font-weight: 500;
+      background: rgba(76,175,80,0.7); padding: 7px 16px;
+      border-radius: 20px; backdrop-filter: blur(6px);
+      transition: background .2s; border: none; cursor: pointer;
+    }
+    #share-btn:hover { background: rgba(76,175,80,0.95); }
+
+    #tooltip {
+      display: none; position: fixed; z-index: 20;
+      background: rgba(255,255,255,0.96); color: #333;
+      padding: 14px 18px; border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+      font-size: 13px; pointer-events: none;
+      min-width: 190px; backdrop-filter: blur(6px);
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+
+    #stats {
+      position: fixed; bottom: 14px; left: 14px; z-index: 10;
+      background: rgba(0,0,0,0.35); color: #fff;
+      padding: 10px 16px; border-radius: 12px;
+      font-size: 12px; backdrop-filter: blur(6px);
+      line-height: 1.7;
+    }
+    #stats .stat-label { color: rgba(255,255,255,0.6); }
+
+    #legend {
+      position: fixed; bottom: 14px; right: 14px; z-index: 10;
+      background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.85);
+      padding: 10px 16px; border-radius: 12px;
+      font-size: 11px; backdrop-filter: blur(6px);
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <a id="back-link" href="/">&#8592; Back to Menu</a>
+  <button id="share-btn" onclick="window.location.href='/demo/share?month='+window.__TREE_DATA__.monthPast">&#128228; Download &amp; Share</button>
+  <canvas id="tree-canvas"></canvas>
+  <div id="tooltip"></div>
+  <div id="stats"></div>
+  <div id="legend">
+    <div>&#127811; Leaf = active day</div>
+    <div>&#127822; Fruit = strong run (&gt;90 pts)</div>
+    <div>&#128038; Birds fly by</div>
+    <div style="margin-top:4px;color:rgba(255,255,255,0.5)">Hover branches for details</div>
+  </div>
+
+  <script>window.__TREE_DATA__ = {{ tree_data|safe }};</script>
+  <script src="/static/tree-viz.js"></script>
+</body>
+</html>

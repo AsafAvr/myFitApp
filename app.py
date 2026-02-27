@@ -123,14 +123,12 @@ def test_api_request():
                                 heart = val['fpVal']
                                 heartPointsList.append(heart)
 
-    coords = listToCord(heartPointsList,monthPast,bottomX,bottomY)
+    tree_data = prepare_tree_data(heartPointsList, monthPast)
 
     # Save credentials back to session in case access token was refreshed.
-    # ACTION ITEM: In a production app, you likely want to save these
-    #              credentials in a persistent database instead.
     flask.session['credentials'] = credentials_to_dict(credentials)
 
-    return render_template('/image.html', GreekStatue = json.dumps(coords))
+    return render_template('/tree.html', tree_data=json.dumps(tree_data))
 
 @app.route('/nogooglefit')
 def nogooglefit():
@@ -237,31 +235,68 @@ def generate_mock_data(monthPast):
     return heartPointsList
 
 
+def prepare_tree_data(heartPointsList, monthPast):
+    """Convert a flat heart-points list into structured data for the animated tree viz."""
+    threshold = 60
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    days = []
+    for i, hp in enumerate(heartPointsList):
+        week = i // 7
+        dow = i % 7
+        hp_val = int(hp) if isinstance(hp, (int, float)) else 0
+        days.append({
+            "dayOfWeek": dow,
+            "week": week,
+            "heartPoints": hp_val,
+            "isRun": hp_val > threshold
+        })
+    total_weeks = max(1, (len(heartPointsList) + 6) // 7)
+    return {
+        "days": days,
+        "monthPast": monthPast,
+        "threshold": threshold,
+        "totalWeeks": total_weeks,
+        "dayNames": day_names
+    }
+
+
 @app.route('/demo', methods=["GET", "POST"])
 @csrf.exempt
 def demo():
     monthPast = 4
-    bottomX = 1200
-    bottomY = 800
     if request.method == "POST":
         if request.form.get("month") and request.form.get("month").isnumeric():
             monthPast = int(request.form.get("month"))
             if monthPast > 24 or monthPast < 1:
                 monthPast = 4
-        if request.form.get("w"):
-            try:
-                bottomX = int(request.form.get("w"))
-            except ValueError:
-                pass
-        if request.form.get("h"):
-            try:
-                bottomY = int(request.form.get("h"))
-            except ValueError:
-                pass
 
     heartPointsList = generate_mock_data(monthPast)
-    coords = listToCord(heartPointsList, monthPast, bottomX, bottomY)
-    return render_template('/image.html', GreekStatue=json.dumps(coords))
+    tree_data = prepare_tree_data(heartPointsList, monthPast)
+    return render_template('/tree.html', tree_data=json.dumps(tree_data))
+
+
+@app.route('/demo/share')
+def demo_share():
+    """Download a self-contained HTML file of the tree visualization."""
+    monthPast = request.args.get('month', 4, type=int)
+    if monthPast > 24 or monthPast < 1:
+        monthPast = 4
+
+    heartPointsList = generate_mock_data(monthPast)
+    tree_data = prepare_tree_data(heartPointsList, monthPast)
+
+    js_path = os.path.join(app.static_folder, 'tree-viz.js')
+    with open(js_path, 'r') as f:
+        js_code = f.read()
+
+    html = render_template('/share.html',
+                           tree_data=json.dumps(tree_data),
+                           js_code=js_code)
+
+    response = flask.make_response(html)
+    response.headers['Content-Disposition'] = 'attachment; filename=my-fit-tree.html'
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return response
 
 
 def credentials_to_dict(credentials):
