@@ -47,7 +47,9 @@
   new ResizeObserver(() => { size(); draw(); }).observe(stage);
 
   let last = 0;
+  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   function loop(t) {
+    if (calm) return;
     if (ambient && !document.hidden && t - last > 30) { ambient.step(actx, dpr, t); last = t; }
     requestAnimationFrame(loop);
   }
@@ -122,30 +124,31 @@
   stage.addEventListener('mouseleave', () => tip.classList.remove('on'));
 
   // ------------------------------------------------------------------ panel
+  const ICON = {"trunk": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"><circle cx=\"16\" cy=\"16\" r=\"13\"/><circle cx=\"16.5\" cy=\"15.5\" r=\"9.5\"/><circle cx=\"17\" cy=\"15\" r=\"6\"/><circle cx=\"17\" cy=\"15\" r=\"2.6\"/></svg>", "roots": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"M3 9h26\"/><path d=\"M16 4v8c0 5-3 8-8 12M16 12c0 6 1 11 1 17M16 12c1 5 5 8 11 10M16 14c-3 3-8 4-12 4M17 20c2 2 4 5 4 8\"/></svg>", "limbs": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"M16 30V17c0-4-3-7-9-10M16 19c0-5 4-9 10-12M16 23c2-1 6-1 9 1M11 10l-3-5M22 10l1-6\"/></svg>", "leaf": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"M5 27C5 13 13 5 28 4c0 15-8 23-23 23z\"/><path d=\"M5 27L20 12M12 20h5M15 17v-5\"/></svg>", "fruit": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><circle cx=\"16\" cy=\"19\" r=\"9\"/><path d=\"M16 10c0-3 1-5 3-7M17 7c3-2 7-2 9 0-3 2-6 2-9 0\"/></svg>", "amber": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"M16 4c5 7 8 11 8 15a8 8 0 0 1-16 0c0-4 3-8 8-15z\"/><path d=\"M12 19a4 4 0 0 0 4 4\"/></svg>", "nest": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><ellipse cx=\"11\" cy=\"15\" rx=\"3\" ry=\"4\"/><ellipse cx=\"17\" cy=\"14\" rx=\"3\" ry=\"4.2\"/><ellipse cx=\"22.5\" cy=\"15.5\" rx=\"2.6\" ry=\"3.6\"/><path d=\"M4 17c2 8 22 8 24 0M5 20c6 2 16 2 22 0M7 23c5 1.5 13 1.5 18 0\"/></svg>", "meadow": "<svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><circle cx=\"16\" cy=\"10\" r=\"2.5\"/><path d=\"M16 5.5a3 3 0 0 1 0 0M12 7.5a3.2 3.2 0 1 1 3 -3.2M20 7.5a3.2 3.2 0 1 0 -3 -3.2M12.5 12a3.2 3.2 0 1 0 2 2.8M19.5 12a3.2 3.2 0 1 1 -2 2.8\"/><path d=\"M16 13v16M16 24c-3-4-7-4-9-3M16 21c2-3 5-4 8-3\"/></svg>"};
   const panel = $('panel');
   panel.innerHTML = `
-    <div class="card part"><div class="ico">🪵</div><h3>Trunk = persistence</h3>
+    <div class="card part"><div class="ico">${ICON.trunk}</div><h3>Trunk = persistence</h3>
       <div class="means">Every week you run adds a growth ring; streaks add thicker wood. It never shrinks.</div>
       <div class="val"><div class="slice"><canvas id="slice"></canvas><div id="trunkVal"></div></div></div></div>
-    <div class="card part"><div class="ico">🌿</div><h3>Roots = your weekly rhythm</h3>
+    <div class="card part"><div class="ico">${ICON.roots}</div><h3>Roots = your weekly rhythm</h3>
       <div class="means">One root per weekday, as thick as the share of runs on that day.</div>
       <div class="val"><div class="bars" id="bars"></div><div class="bars-l" id="barsL"></div><div id="rootVal" style="margin-top:6px"></div></div></div>
-    <div class="card part"><div class="ico">🌳</div><h3>Limbs, branches, twigs</h3>
+    <div class="card part"><div class="ico">${ICON.limbs}</div><h3>Limbs, branches, twigs</h3>
       <div class="means">Limb = a month (strong month → long, thick limb) · branch = a week · twig = one run, placed by weekday, as long as the run, kinked by hills, lifted by pace.</div>
       <div class="val" id="limbVal"></div></div>
-    <div class="card part"><div class="ico">🍃</div><h3>Leaf colour = your last weeks</h3>
+    <div class="card part"><div class="ico">${ICON.leaf}</div><h3>Leaf colour = your last weeks</h3>
       <div class="means">Your last 10 days of running vs your usual 6 weeks. Steady → summer green, building → spring flush, fading → autumn, stopped → winter.</div>
       <div class="val"><div class="seasonbar"><i id="seasonMark"></i></div><div class="seasonlabels"><span>winter</span><span>autumn</span><span>summer</span><span>spring</span></div><div id="seasonVal" style="margin-top:6px"></div></div></div>
-    <div class="card part"><div class="ico">🍎</div><h3>Fruit = latest runs</h3>
+    <div class="card part"><div class="ico">${ICON.fruit}</div><h3>Fruit = latest runs</h3>
       <div class="means">Runs from the last 3 weeks hang as fruit, ripening with age. Kind follows the run; the newest one glows.</div>
       <div class="val"><div class="fruitlist" id="fruitVal"></div></div></div>
-    <div class="card part"><div class="ico">✨</div><h3>Blossoms & amber rings</h3>
+    <div class="card part"><div class="ico">${ICON.amber}</div><h3>Blossoms & amber rings</h3>
       <div class="means">Strava PRs bloom on their twig. Milestones (first 10K, 100 km…) leave an amber ring in the bark.</div>
       <div class="val" id="msVal"></div></div>
-    <div class="card part"><div class="ico">🪺</div><h3>Nest = streak</h3>
+    <div class="card part"><div class="ico">${ICON.nest}</div><h3>Nest = streak</h3>
       <div class="means">2+ weeks in a row builds a nest; each week adds an egg (up to 6). At 8 weeks a robin moves in.</div>
       <div class="val" id="nestVal"></div></div>
-    <div class="card part"><div class="ico">🌼</div><h3>Meadow = cross-training</h3>
+    <div class="card part"><div class="ico">${ICON.meadow}</div><h3>Meadow = cross-training</h3>
       <div class="means">Rides, swims, walks and workouts from the last 90 days bloom as wildflowers around the tree.</div>
       <div class="val" id="meadowVal"></div></div>`;
   const slice = $('slice');
@@ -228,9 +231,9 @@
     g.addColorStop(0, 'rgba(0,0,0,0.42)'); g.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = g; x.fillRect(0, 0, cw, 190);
     x.fillStyle = '#fff'; x.textAlign = 'left';
-    x.font = `600 ${Math.round(cw * 0.056)}px Fraunces, Georgia, serif`;
+    x.font = `650 ${Math.round(cw * 0.056)}px 'Bricolage Grotesque', system-ui, sans-serif`;
     x.fillText(`${name}'s running tree`, cw * 0.06, ch * 0.065);
-    x.font = `500 ${Math.round(cw * 0.026)}px Inter, system-ui, sans-serif`;
+    x.font = `500 ${Math.round(cw * 0.026)}px 'Instrument Sans', system-ui, sans-serif`;
     x.fillStyle = 'rgba(255,255,255,0.9)';
     x.fillText(`${fmtDate(Tc)} · ${SEASON_EMOJI[lab] || ''} ${lab}`, cw * 0.06, ch * 0.065 + cw * 0.045);
     // bottom stats strip
@@ -242,12 +245,13 @@
     stats.forEach(([v, l], i) => {
       const cx = bx + bw * (i + 0.5) / 4;
       x.textAlign = 'center'; x.fillStyle = '#fff';
-      x.font = `600 ${Math.round(cw * 0.05)}px Fraunces, Georgia, serif`; x.fillText(String(v), cx, by + bh * 0.52);
-      x.font = `500 ${Math.round(cw * 0.022)}px Inter, system-ui, sans-serif`; x.fillStyle = 'rgba(255,255,255,0.75)'; x.fillText(l, cx, by + bh * 0.8);
+      x.font = `650 ${Math.round(cw * 0.05)}px 'Bricolage Grotesque', system-ui, sans-serif`; x.fillText(String(v), cx, by + bh * 0.52);
+      x.font = `500 ${Math.round(cw * 0.022)}px 'Instrument Sans', system-ui, sans-serif`; x.fillStyle = 'rgba(255,255,255,0.75)'; x.fillText(l, cx, by + bh * 0.8);
     });
     return c;
   }
   function roundRect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+  if (window.top !== window.self) $('dlBtn').hidden = true;
   $('dlBtn').onclick = () => {
     const c = renderCard(1080, 1350);
     const a = document.createElement('a');
@@ -258,7 +262,9 @@
   if (params.get('card')) {
     document.body.classList.add('cardmode');
     const go = () => { renderCard(+params.get('w') || 1080, +params.get('h') || 1350); document.body.dataset.ready = '1'; };
-    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(go, go);
+    const fonts = document.fonts ? Promise.all([document.fonts.load("650 40px 'Bricolage Grotesque'"),
+      document.fonts.load("500 20px 'Instrument Sans'")]).then(() => document.fonts.ready) : Promise.resolve();
+    Promise.race([fonts, new Promise((r) => setTimeout(r, 4000))]).then(go, go);
   }
   if (params.get('t')) { T = Math.max(0, Math.min(M.today, +params.get('t'))); slider.value = T; }
   document.body.dataset.viewerReady = '1';

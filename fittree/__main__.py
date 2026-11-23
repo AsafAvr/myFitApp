@@ -134,7 +134,7 @@ def cmd_demo(a):
     acts = __import__("fittree.demo", fromlist=["synth"]).synth(a.kind, seed=a.seed)
     save_acts(a.key, acts)
     (data_dir(a.key) / "athlete.json").write_text(json.dumps(
-        {"id": f"demo-{a.key}", "first_name": a.name or a.key.title(), "source": "synthetic demo data"}))
+        {"id": f"demo-{a.key}", "first_name": a.name or a.key.title(), "source": "synthetic demo"}))
     print(f"· {a.key}: {len(acts)} synthetic activities ({a.kind})")
 
 
