@@ -1,0 +1,79 @@
+name: Grow the trees
+
+# Twice a day: pull new runs from Strava, regrow every tree, publish to
+# GitHub Pages. On Sunday morning (Israel time) also send the weekly card.
+on:
+  schedule:
+    - cron: "13 4 * * *"    # ~06:13-07:13 Israel
+    - cron: "13 18 * * *"   # ~20:13-21:13 Israel, so evening runs show up the same day
+  workflow_dispatch:
+    inputs:
+      send:
+        description: "Send the weekly card now"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: grow
+  cancel-in-progress: false
+
+jobs:
+  grow:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+      STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+      STRAVA_REFRESH_TOKEN_ASAF: ${{ secrets.STRAVA_REFRESH_TOKEN_ASAF }}
+      STRAVA_REFRESH_TOKEN_AMIR: ${{ secrets.STRAVA_REFRESH_TOKEN_AMIR }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID_AMIR: ${{ secrets.TELEGRAM_CHAT_ID_AMIR }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAIL_TO_AMIR: ${{ secrets.EMAIL_TO_AMIR }}
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install headless Chromium (for the PNG card)
+        run: |
+          npm install --no-save playwright@1.48.2
+          npx playwright install --with-deps chromium
+
+      - name: Sync runs from Strava and regrow
+        run: |
+          python -m fittree sync
+          python -m fittree build --png
+
+      - name: Send the weekly card (Sunday morning, or on demand)
+        run: |
+          if [ "${{ inputs.send }}" = "true" ] || \
+             { [ "${{ github.event.schedule }}" = "13 4 * * *" ] && [ "$(TZ=Asia/Jerusalem date +%u)" = "7" ]; }; then
+            python -m fittree send
+          else
+            echo "Not sending today."
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

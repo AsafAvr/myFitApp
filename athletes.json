@@ -1,0 +1,21 @@
+{
+  "site_url": "",
+  "athletes": [
+    {
+      "key": "asaf",
+      "name": "Asaf",
+      "strava_id": 45131859,
+      "week_start": "sunday",
+      "target_runs": 3,
+      "send": {"telegram": false, "email": false}
+    },
+    {
+      "key": "amir",
+      "name": "Amir",
+      "strava_id": 63836194,
+      "week_start": "sunday",
+      "target_runs": 2,
+      "send": {"telegram": true, "email": true}
+    }
+  ]
+}
