@@ -340,8 +340,15 @@ def google_authorize_url(client_id: str, redirect_uri: str) -> str:
     })
 
 
-def google_exchange_code(client_id: str, client_secret: str, code: str, redirect_uri: str) -> dict:
-    return _post(GOOGLE_TOKEN, {"client_id": client_id, "client_secret": client_secret, "code": code,
+def _client_fields(client_id: str, client_secret: Optional[str]) -> dict:
+    """client_secret_post normally. With no secret in the environment we rely
+    on client_secret_basic: an Authorization: Basic header that a secrets
+    proxy adds to requests for oauth2.googleapis.com (Google supports both)."""
+    return {"client_id": client_id, "client_secret": client_secret} if client_secret else {}
+
+
+def google_exchange_code(client_id: str, client_secret: Optional[str], code: str, redirect_uri: str) -> dict:
+    return _post(GOOGLE_TOKEN, {**_client_fields(client_id, client_secret), "code": code,
                                 "redirect_uri": redirect_uri, "grant_type": "authorization_code"})
 
 
@@ -390,17 +397,17 @@ class GoogleHealthClient:
 
     @property
     def configured(self) -> bool:
-        return bool(self._access or (self.client_id and self.client_secret and self.refresh_token))
+        return bool(self._access or self.refresh_token)
 
     def token(self) -> str:
         if self._access and time.time() < self._exp - 60:
             return self._access
-        if not (self.client_id and self.client_secret and self.refresh_token):
+        if not self.refresh_token:
             if self._access:
                 return self._access
             raise GoogleError("Google credentials missing: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, "
                               "GOOGLE_REFRESH_TOKEN_<ATHLETE>.")
-        tok = _post(GOOGLE_TOKEN, {"client_id": self.client_id, "client_secret": self.client_secret,
+        tok = _post(GOOGLE_TOKEN, {**_client_fields(self.client_id, self.client_secret),
                                    "refresh_token": self.refresh_token, "grant_type": "refresh_token"})
         self._access, self._exp = tok["access_token"], time.time() + float(tok.get("expires_in", 3600))
         return self._access
@@ -418,6 +425,8 @@ class GoogleHealthClient:
                                   "and sign in once, then retry.") from e
             raise GoogleError(f"GET {path} -> HTTP {e.code}: {body!r}") from e
 
+    _list_path = "/users/me/dataTypes/exercise/dataPoints"
+
     def exercises(self, since: Optional[dt.date] = None, tz: str = DEFAULT_TZ) -> list[Activity]:
         since = since or dt.date(2015, 1, 1)
         flt = f'exercise.interval.civil_start_time >= "{since.isoformat()}T00:00:00"'
@@ -426,7 +435,13 @@ class GoogleHealthClient:
             params = {"filter": flt, "pageSize": 200}
             if page:
                 params["pageToken"] = page
-            res = self.get("/users/me/dataTypes/exercise/dataPoints", **params)
+            try:
+                res = self.get(self._list_path, **params)
+            except GoogleError as e:
+                if self._list_path.endswith(":reconcile") or not any(c in str(e) for c in ("404", "400", "405")):
+                    raise
+                self._list_path += ":reconcile"     # the documented read path
+                res = self.get(self._list_path, **params)
             points = res.get("dataPoints") or next((v for v in res.values() if isinstance(v, list)), [])
             out += [a for a in (from_health_point(p, tz) for p in points) if a]
             page = res.get("nextPageToken")

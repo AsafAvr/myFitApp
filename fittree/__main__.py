@@ -70,9 +70,12 @@ def source_of(key: str) -> str:
     return str(athlete_cfg(load_config(), key).get("source", "google")).lower()
 
 
-def _creds(provider: str) -> tuple[str, str]:
+def _creds(provider: str) -> tuple[str, str | None]:
     p = "GOOGLE" if provider == "google" else "STRAVA"
     cid, secret = os.getenv(f"{p}_CLIENT_ID"), os.getenv(f"{p}_CLIENT_SECRET")
+    if p == "GOOGLE" and cid and not secret:
+        print("· GOOGLE_CLIENT_SECRET not set: relying on a proxy-injected Basic auth header for oauth2.googleapis.com")
+        return cid, None
     if not (cid and secret):
         where = ("a Google Cloud OAuth client (Desktop app) with the Google Health API enabled"
                  if p == "GOOGLE" else "https://www.strava.com/settings/api")
