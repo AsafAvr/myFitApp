@@ -1,6 +1,6 @@
 name: Grow the trees
 
-# Twice a day: pull new runs from Strava, regrow every tree, publish to
+# Twice a day: pull new workouts (Google Health API, or Strava), regrow every tree, publish to
 # GitHub Pages. On Sunday morning (Israel time) also send the weekly card.
 on:
   schedule:
@@ -29,6 +29,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     env:
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN_ASAF: ${{ secrets.GOOGLE_REFRESH_TOKEN_ASAF }}
+      GOOGLE_REFRESH_TOKEN_AMIR: ${{ secrets.GOOGLE_REFRESH_TOKEN_AMIR }}
       STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
       STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
       STRAVA_REFRESH_TOKEN_ASAF: ${{ secrets.STRAVA_REFRESH_TOKEN_ASAF }}
@@ -57,7 +61,7 @@ jobs:
           npm install --no-save playwright@1.48.2
           npx playwright install --with-deps chromium
 
-      - name: Sync runs from Strava and regrow
+      - name: Sync new workouts and regrow
         run: |
           python -m fittree sync
           python -m fittree build --png

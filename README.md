@@ -2,7 +2,7 @@
 
 Every run grows a twig. Every week you show up adds a growth ring to the trunk.
 Stop running and the leaves turn amber, fall, and the tree goes into winter —
-come back and it buds again. The tree is rebuilt from Strava twice a day and a
+come back and it buds again. The tree is rebuilt from Google Health (or Strava) twice a day and a
 weekly card is sent on Sunday morning with what grew and what to do next.
 
 | A mature habit (20 months) | A new habit (5 weeks) |
@@ -30,7 +30,7 @@ Every part is computed from the runs; nothing is decoration-only.
 | 🍃 **Leaves** | ≈1.6 leaves per km of that run. |
 | 🎨 **Leaf colour** | **Your last weeks.** Last 10 days of training time vs. your usual 6 weeks: building → *spring flush*, steady → *summer*, fading → *late summer/autumn*, 3 weeks off → *winter* (bare, snow). A spike above ~135 % → *heatwave* (red-tipped leaves). Colour eases in slowly, like a real tree. |
 | 🍒🍎🍊🫐🌟 **Fruit** | **Latest runs** (last 3 weeks): cherries = easy, apple = long, orange = fast/tempo, plums = hilly/trail, golden apple = race. "Long" and "fast" are judged against your own last 10 weeks, so a beginner's 6 km is already an apple. The newest fruit glows. |
-| 🌸 **Blossoms** | Runs with Strava PRs or new milestones. |
+| 🌸 **Blossoms** | Personal bests (longest run yet, fastest 5K/10K/half yet), Strava PRs, and new milestones. |
 | ✨ **Amber** | Milestones in the bark: first 5K/10K/half/marathon (full amber rings), 100/500/1,000 km, 50/100 runs (amber beads). |
 | 🪺 **Nest** | Current weekly streak: a nest from 2 weeks, one egg per week (max 6), a robin moves in at 8 weeks. |
 | 🕳️ **Knots** | Weeks without a run, at the height of the trunk where they happened. |
@@ -53,34 +53,57 @@ python -m pytest -q
 Python ≥ 3.10 with only the standard library; the PNG card needs Node +
 Playwright (`npm i playwright && npx playwright install chromium`).
 
-## Getting Strava data
+## Getting the runs in
 
-**1. Strava API app (needed for the automatic weekly tree).**
-Create an app at <https://www.strava.com/settings/api> (any name; *Authorization
-Callback Domain* = `localhost`). Then, for each athlete:
+Strava's API needs a paid developer subscription since June 2026, so the
+default source is Google. Set `"source"` per athlete in `athletes.json`
+(`google` or `strava`).
 
-```bash
-export STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=...
-python -m fittree auth asaf        # opens Strava, catches the redirect, saves .secrets/asaf.env
-```
-
-For someone who isn't at your computer (Amir):
+**1. History, once: Google Takeout.** <https://takeout.google.com> → *Deselect
+all* → tick **Fit** (and **Fitbit / Google Health** if you have it) → export
+to Drive or download. Then:
 
 ```bash
-python -m fittree exchange amir    # prints a consent link — send it to Amir
+python -m fittree inspect takeout-*.zip    # what's inside
+python -m fittree import asaf takeout-*.zip
+python -m fittree build asaf --png
 ```
 
-Amir taps **Authorize**; his browser lands on a `localhost` page that won't
-load — he sends you the address (it contains `code=…`, single-use, useless
-without your client secret). Then `python -m fittree exchange amir <code>`.
-Keep the default *View data about your activities* box ticked.
+The importer reads Fit's per-workout `.tcx` files (time, distance, elevation,
+heart rate) and session `.json` summaries, merges duplicates, and converts UTC
+to local time (`timezone` in `athletes.json`). Loose `.tcx` files from any
+app work too. Export before Google switches the Fit APIs off (end of 2026):
+Fit history doesn't move to Health Connect by itself.
 
-**2. Strava bulk export** (no API app): Strava → Settings → My Account →
-*Download or Delete Your Account* → *Request your archive*, then
-`python -m fittree import asaf path/to/activities.csv`.
+**2. Ongoing, with permission: Google Health API.** Google's cloud successor
+to the Fit REST API: each person approves read access once on Google's
+consent screen, and the weekly job reads new workouts with a refresh token.
 
-**3. Any JSON list of Strava activities** (e.g. exported via the Strava
-connector): `python -m fittree import asaf activities.json`.
+1. In <https://console.cloud.google.com>: new project → enable **Google
+   Health API** → *Google Auth Platform*: Audience *External*, then
+   **Publish app** (status *In production*; in *Testing*, refresh tokens die
+   after 7 days). Unverified apps are fine for up to 100 people; they see a
+   "Google hasn't verified this app" screen and tap *Continue*.
+2. Data access → add scope `…/auth/googlehealth.activity_and_fitness.readonly`.
+3. Clients → *Create client* → **Desktop app** → note the ID and secret.
+4. Each runner must have opened the **Google Health** app and signed in once.
+
+```bash
+export GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
+python -m fittree auth asaf          # opens Google's consent page, saves .secrets/asaf.env
+python -m fittree exchange amir      # prints a consent link to send to Amir
+python -m fittree exchange amir 'http://127.0.0.1:8766/?code=...'   # the address he sends back
+python -m fittree sync && python -m fittree build --png
+```
+
+Only workouts that appear in the Google Health app are visible to this API
+(Fitbit, Pixel Watch and apps that sync into it), so check that your runs show
+up there first.
+
+**3. Strava (paid API).** Set `"source": "strava"`, create an app at
+<https://www.strava.com/settings/api>, then `python -m fittree auth asaf`.
+Strava's free account archive (*Settings → My Account → Download or Delete
+Your Account*) also imports: `python -m fittree import asaf activities.csv`.
 
 ## Sending it weekly (GitHub Actions)
 
@@ -89,8 +112,8 @@ GitHub Pages, and on Sunday morning (Israel time) sends the card.
 
 1. *Settings → Pages → Source: GitHub Actions.*
 2. *Settings → Secrets and variables → Actions* — secrets:
-   `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN_ASAF`,
-   `STRAVA_REFRESH_TOKEN_AMIR`, and for delivery either
+   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN_ASAF`,
+   `GOOGLE_REFRESH_TOKEN_AMIR` (or the `STRAVA_*` equivalents), and for delivery either
    - Telegram: `TELEGRAM_BOT_TOKEN` (from @BotFather) + `TELEGRAM_CHAT_ID_AMIR`
      (Amir sends the bot `/start`, then read the id from
      `https://api.telegram.org/bot<TOKEN>/getUpdates`), or
@@ -112,7 +135,8 @@ matters.
 
 ```
 fittree/   model.py   normalized Activity
-           strava.py  OAuth + API sync, bulk-export import
+           google.py  Google Takeout (Fit) import, TCX parser, Google Health API client
+           strava.py  Strava OAuth + API sync, bulk-export import
            habits.py  runs -> genome (weeks, wood, streaks, season, roots, milestones)
            story.py   weekly message: what grew, why, what's next
            site.py    self-contained HTML page per athlete, PNG card

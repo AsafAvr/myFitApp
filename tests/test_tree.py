@@ -120,3 +120,59 @@ def test_js_engine_grows_deterministically(tmp_path):
     assert data["out"][-1]["twigs"] > data["out"][1]["twigs"]
     assert data["out"][-1]["leaves"] > 500
     assert sum(story.leaves_for(r["km"]) for r in g["runs"]) == data["leaves"]
+
+
+# ---------------------------------------------------------------- Google side
+from fittree import google  # noqa: E402
+
+TCX = """<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
+ <Activities><Activity Sport="{sport}"><Id>{t}</Id>
+  <Lap StartTime="{t}"><TotalTimeSeconds>1800</TotalTimeSeconds><DistanceMeters>{d}</DistanceMeters>
+   <Track>{pts}</Track></Lap></Activity></Activities></TrainingCenterDatabase>"""
+
+
+def tcx(t, sport="Running", d=5012.0, alts=(10, 11, 16, 15, 22, 30, 29, 35)):
+    pts = "".join(f"<Trackpoint><Time>{t}</Time><AltitudeMeters>{a}</AltitudeMeters>"
+                  f"<HeartRateBpm><Value>{150 + i}</Value></HeartRateBpm></Trackpoint>" for i, a in enumerate(alts))
+    return TCX.format(sport=sport, t=t, d=d, pts=pts)
+
+
+def test_takeout_zip_merges_sessions_and_tcx(tmp_path):
+    import zipfile
+    z = tmp_path / "takeout-20261110T124359Z-1-001.zip"
+    with zipfile.ZipFile(z, "w") as f:
+        f.writestr("Takeout/Fit/All Sessions/2026-11-03T06_12_44+02_00_RUNNING.json", json.dumps({
+            "fitnessActivity": "running", "startTime": "2026-11-03T04:12:44.000Z",
+            "endTime": "2026-11-03T04:42:44.000Z", "duration": "1800.000s",
+            "aggregate": [{"metricName": "com.google.distance.delta", "floatValue": 5012.3},
+                          {"metricName": "com.google.step_count.delta", "intValue": 4800}]}))
+        f.writestr("Takeout/Fit/Activities/2026-11-03T06_12_44+02_00_RUNNING.tcx", tcx("2026-11-03T04:13:01.000Z"))
+        f.writestr("Takeout/Fit/Activities/2026-11-05T17_00_00+02_00_WALKING.tcx",
+                   tcx("2026-11-05T15:00:00.000Z", sport="Other", d=3000))
+        f.writestr("Takeout/Chrome/History.json", json.dumps({"startTime": "x", "activity": "y"}))
+    acts = google.load_takeout(z, tz="Asia/Jerusalem", verbose=False)
+    run_, walk = acts
+    assert run_.is_run and run_.distance_km == pytest.approx(5.012, abs=1e-3)
+    assert run_.start == dt.datetime(2026, 11, 3, 6, 12, 44)          # local Israel time
+    assert run_.elev_m == pytest.approx(25.0) and run_.avg_hr == pytest.approx(153.5)   # from the TCX twin
+    assert walk.sport == "Walk" and walk.start.hour == 17
+    assert "Fit/All Sessions" in google.inspect(z)
+
+
+def test_google_health_point_adapter():
+    a = google.from_health_point({
+        "name": "users/me/dataTypes/exercise/dataPoints/123456789",
+        "exercise": {"exerciseType": "RUNNING", "displayName": "Run",
+                     "interval": {"startTime": "2026-11-20T04:00:00Z", "endTime": "2026-11-20T04:40:00Z",
+                                  "startUtcOffset": "7200s"},
+                     "activeDuration": "2280s",
+                     "metricsSummary": {"distanceMillimeters": 7_250_000, "elevationGainMillimeters": 41_000,
+                                        "averageHeartRateBeatsPerMinute": 151}}})
+    assert a.id == 123456789 and a.is_run and a.start == dt.datetime(2026, 11, 20, 6, 0)
+    assert a.distance_km == pytest.approx(7.25) and a.elev_m == pytest.approx(41.0) and a.moving_s == 2280
+
+
+def test_elevation_gain_ignores_jitter():
+    assert google.elevation_gain([10, 11, 10, 12, 11, 10]) == 0
+    assert google.elevation_gain([10, 20, 15, 25]) == pytest.approx(20)

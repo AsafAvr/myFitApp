@@ -99,7 +99,7 @@
         const date = new Date(M.origin + Math.floor(d.day) * DAY).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
         return `<b>${FRUIT[d.kind]} ${esc(d.name || 'Run')}</b><br>${date} · ${d.t.slice(11, 16)}<br>${d.km.toFixed(2)} km · ${fmtPace(d.pace)} · ↑${d.elev} m${d.hr ? ` · ♥ ${d.hr}` : ''}<br>` +
           `<span style="opacity:.75">Twig ${d.km.toFixed(1)} km long, ${FT.leafCount(d.km)} leaves · ${FT.KIND_LABEL[d.kind]}</span>` +
-          (d.pr ? `<br>🌸 ${d.pr} PR${d.pr > 1 ? 's' : ''}` : '') + (d.ms ? `<br>✨ ${esc(d.ms.join(' · '))}` : '');
+          (d.pb ? `<br>🌸 ${esc(d.pb.join(' · '))}` : d.pr ? `<br>🌸 ${d.pr} PR${d.pr > 1 ? 's' : ''}` : '') + (d.ms ? `<br>✨ ${esc(d.ms.join(' · '))}` : '');
       }
       case 'root': return `<b>${d.day} root</b><br>${d.runs} runs · ${d.km.toFixed(1)} km on ${d.day}s<br><span style="opacity:.75">${Math.round(d.share * 100)}% of your runs${d.strongest ? ' — your anchor day' : ''}</span>`;
       case 'limb': return `<b>${esc(d.label)} limb</b><br>${d.runs} runs · ${d.km.toFixed(1)} km<br><span style="opacity:.75">vigor ${(d.vigor * 100).toFixed(0)}%: longer & thicker when the month's habit was strong</span>`;
@@ -143,7 +143,7 @@
       <div class="means">Runs from the last 3 weeks hang as fruit, ripening with age. Kind follows the run; the newest one glows.</div>
       <div class="val"><div class="fruitlist" id="fruitVal"></div></div></div>
     <div class="card part"><div class="ico">${ICON.amber}</div><h3>Blossoms & amber rings</h3>
-      <div class="means">Strava PRs bloom on their twig. Milestones (first 10K, 100 km…) leave an amber ring in the bark.</div>
+      <div class="means">Personal bests (longest run, fastest 5K/10K…) and Strava PRs bloom on their twig. Milestones (first 10K, 100 km…) leave an amber ring in the bark.</div>
       <div class="val" id="msVal"></div></div>
     <div class="card part"><div class="ico">${ICON.nest}</div><h3>Nest = streak</h3>
       <div class="means">2+ weeks in a row builds a nest; each week adds an egg (up to 6). At 8 weeks a robin moves in.</div>

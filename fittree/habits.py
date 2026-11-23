@@ -109,6 +109,13 @@ def week_start_of(d: dt.date, week_start: int) -> dt.date:
     return d - dt.timedelta(days=(d.weekday() - week_start) % 7)
 
 
+def pace_bucket(km: float) -> Optional[str]:
+    for lo, hi, name in ((4.5, 7.5, "5K"), (9.0, 12.5, "10K"), (19.5, 24.0, "half"), (40.0, 45.0, "marathon")):
+        if lo <= km <= hi:
+            return name
+    return None
+
+
 def classify(run: Activity, history: list[Activity]) -> tuple[str, dict]:
     """Kind of fruit a run bears, judged against the athlete's own recent
     history (so a beginner's 6 km can already be a 'long run')."""
@@ -168,8 +175,22 @@ def build_genome(acts: list[Activity], athlete: dict, opts: Options | None = Non
     run_ms = iter(RUN_MILESTONES)
     next_rc = next(run_ms)
     dist_done = set()
+    longest = 0.0
+    best_pace: dict[str, float] = {}
+    bucket_n: Counter = Counter()
     for i, r in enumerate(runs):
         kind, flags = classify(r, runs[:i])
+        # our own personal bests, so sources without Strava PRs still blossom
+        own_pb = []
+        if i >= 3 and r.distance_km > longest * 1.01:
+            own_pb.append("Longest run yet")
+        b = pace_bucket(r.distance_km)
+        if b and r.pace_s_per_km and not r.trainer:
+            if bucket_n[b] >= 2 and r.pace_s_per_km < best_pace[b] * 0.995:
+                own_pb.append(f"Fastest {b} yet")
+            best_pace[b] = min(best_pace.get(b, 1e9), r.pace_s_per_km)
+            bucket_n[b] += 1
+        longest = max(longest, r.distance_km)
         cum_km += r.distance_km
         ms = []
         if i == 0:
@@ -197,13 +218,15 @@ def build_genome(acts: list[Activity], athlete: dict, opts: Options | None = Non
             "hr": round(r.avg_hr) if r.avg_hr else None,
             "kind": kind,
             "flags": [k for k, v in flags.items() if v],
-            "pr": r.prs,
+            "pr": r.prs or len(own_pb),
             "ach": r.achievements,
             "kudos": r.kudos,
             "sport": r.sport,
         }
         if opts.include_names:
             row["name"] = r.name
+        if own_pb:
+            row["pb"] = own_pb
         if ms:
             row["ms"] = ms
             for m in ms:

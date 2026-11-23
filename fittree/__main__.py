@@ -1,9 +1,10 @@
 """fittree — grow a living tree from a running habit.
 
-  python -m fittree auth amir              # one-time Strava consent (opens browser)
-  python -m fittree exchange amir CODE     # ...or trade a code someone sent you
-  python -m fittree sync                   # pull runs from Strava for every athlete
-  python -m fittree import asaf activities.csv   # or a Strava bulk export / JSON list
+  python -m fittree import asaf takeout.zip      # Google Takeout (Fit), .tcx, Strava csv / JSON
+  python -m fittree inspect takeout.zip          # what's inside an export
+  python -m fittree auth amir              # one-time consent (Google Health or Strava, per athletes.json)
+  python -m fittree exchange amir URL|CODE # ...or finish a consent someone else clicked
+  python -m fittree sync                   # pull new workouts for every athlete
   python -m fittree demo demo --kind seasoned    # synthetic runner, no data needed
   python -m fittree build --png            # genome -> site/<key>/index.html (+ tree.png)
   python -m fittree send amir --dry-run    # Telegram / email the weekly card
@@ -16,9 +17,10 @@ import datetime as dt
 import json
 import os
 import sys
+import urllib.parse
 from pathlib import Path
 
-from . import habits, notify, site, story, strava
+from . import google, habits, notify, site, story, strava
 from .model import Activity, dedupe_sorted, from_strava_api
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,35 +66,67 @@ def site_link(key: str) -> str | None:
 
 # ---------------------------------------------------------------- commands
 
-def cmd_auth(a):
-    cid, secret = os.getenv("STRAVA_CLIENT_ID"), os.getenv("STRAVA_CLIENT_SECRET")
+def source_of(key: str) -> str:
+    return str(athlete_cfg(load_config(), key).get("source", "google")).lower()
+
+
+def _creds(provider: str) -> tuple[str, str]:
+    p = "GOOGLE" if provider == "google" else "STRAVA"
+    cid, secret = os.getenv(f"{p}_CLIENT_ID"), os.getenv(f"{p}_CLIENT_SECRET")
     if not (cid and secret):
-        sys.exit("Set STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET first (https://www.strava.com/settings/api).")
-    code = strava.capture_code_locally(cid, port=a.port, open_browser=not a.no_browser)
-    _store_tokens(a.key, strava.exchange_code(cid, secret, code))
+        where = ("a Google Cloud OAuth client (Desktop app) with the Google Health API enabled"
+                 if p == "GOOGLE" else "https://www.strava.com/settings/api")
+        sys.exit(f"Set {p}_CLIENT_ID and {p}_CLIENT_SECRET first ({where}).")
+    return cid, secret
+
+
+GOOGLE_REMOTE_REDIRECT = "http://127.0.0.1:8766/"
+
+
+def cmd_auth(a):
+    prov = a.provider or source_of(a.key)
+    cid, secret = _creds(prov)
+    if prov == "google":
+        code, redirect = google.google_capture_code(cid, port=a.port or 8766, open_browser=not a.no_browser)
+        _store_tokens(a.key, "google", google.google_exchange_code(cid, secret, code, redirect))
+    else:
+        code = strava.capture_code_locally(cid, port=a.port or 8765, open_browser=not a.no_browser)
+        _store_tokens(a.key, "strava", strava.exchange_code(cid, secret, code))
 
 
 def cmd_exchange(a):
-    cid, secret = os.getenv("STRAVA_CLIENT_ID"), os.getenv("STRAVA_CLIENT_SECRET")
-    if not (cid and secret):
-        sys.exit("Set STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET first.")
+    prov = a.provider or source_of(a.key)
+    cid, secret = _creds(prov)
     if a.code is None:
-        print(strava.authorize_url(cid, "http://localhost/exchange_token"))
-        print("\nSend that link to the athlete. After 'Authorize' their browser lands on a page that\n"
-              "won't load — the address bar contains ...&code=XXXX. Run: python -m fittree exchange KEY XXXX")
+        link = (google.google_authorize_url(cid, GOOGLE_REMOTE_REDIRECT) if prov == "google"
+                else strava.authorize_url(cid, "http://localhost/exchange_token"))
+        print(link)
+        print("\nSend that link to the athlete. After they allow access, their browser lands on a page\n"
+              "that won't load. They send you that page's full address; then run:\n"
+              f"  python -m fittree exchange {a.key} '<address or code>'")
         return
-    _store_tokens(a.key, strava.exchange_code(cid, secret, a.code))
+    code = a.code
+    if "code=" in code:       # a whole redirect URL was pasted
+        code = urllib.parse.parse_qs(urllib.parse.urlparse(code).query)["code"][0]
+    if prov == "google":
+        _store_tokens(a.key, "google", google.google_exchange_code(cid, secret, code, GOOGLE_REMOTE_REDIRECT))
+    else:
+        _store_tokens(a.key, "strava", strava.exchange_code(cid, secret, code))
 
 
-def _store_tokens(key: str, tok: dict):
+def _store_tokens(key: str, prov: str, tok: dict):
+    if not tok.get("refresh_token"):
+        sys.exit("No refresh token returned — revoke the app's access and authorize again.")
     sec = ROOT / ".secrets"
     sec.mkdir(exist_ok=True)
+    var = f"{prov.upper()}_REFRESH_TOKEN_{key.upper()}"
+    (sec / f"{key}.env").write_text(f"{var}={tok['refresh_token']}\n")
     ath = tok.get("athlete", {})
-    (sec / f"{key}.env").write_text(f"STRAVA_REFRESH_TOKEN_{key.upper()}={tok['refresh_token']}\n")
-    print(f"\n✅ Authorized {ath.get('firstname', '')} {ath.get('lastname', '')} (Strava id {ath.get('id')}).")
+    who = f" {ath.get('firstname', '')} {ath.get('lastname', '')}" if ath else ""
+    print(f"\n✅ Authorized{who} for {key} ({prov}).")
     print(f"   Refresh token saved to .secrets/{key}.env (git-ignored).")
-    print(f"   For the GitHub Action add it as repository secret STRAVA_REFRESH_TOKEN_{key.upper()}.")
-    if "activity:read" not in tok.get("scope", "activity:read"):
+    print(f"   For the GitHub Action add it as repository secret {var}.")
+    if prov == "strava" and "activity:read" not in tok.get("scope", "activity:read"):
         print("   ⚠️  activity:read scope missing — re-run and keep the activities box ticked.")
 
 
@@ -100,12 +134,22 @@ def cmd_sync(a):
     cfg = load_config()
     keys = a.keys or [x["key"] for x in cfg["athletes"]]
     for key in keys:
+        old = load_acts(key)
+        after = None if a.full or not old else max(x.start for x in old) - dt.timedelta(days=3)
+        if source_of(key) == "google":
+            gc = google.GoogleHealthClient.from_env(key)
+            if not gc.configured:
+                print(f"· {key}: no Google Health credentials, keeping cached data")
+                continue
+            tz = athlete_cfg(cfg, key).get("timezone", google.DEFAULT_TZ)
+            new = gc.exercises(since=after.date() if after else None, tz=tz)
+            save_acts(key, old + new)
+            print(f"· {key}: {len(new)} workouts from Google Health, {len(load_acts(key))} cached")
+            continue
         client = strava.StravaClient.from_env(key)
         if not client.configured:
             print(f"· {key}: no Strava credentials, keeping cached data")
             continue
-        old = load_acts(key)
-        after = None if a.full or not old else max(x.start for x in old) - dt.timedelta(days=3)
         new = client.activities(after=after)
         save_acts(key, old + new)
         prof = client.athlete()
@@ -119,7 +163,10 @@ def cmd_sync(a):
 
 def cmd_import(a):
     src = Path(a.file)
-    if src.suffix.lower() == ".csv":
+    tz = a.tz or athlete_cfg(load_config(), a.key).get("timezone", google.DEFAULT_TZ)
+    if src.is_dir() or src.suffix.lower() in (".zip", ".tcx"):
+        acts = google.load_takeout(src, tz=tz)
+    elif src.suffix.lower() == ".csv":
         acts = strava.load_bulk_export(src, utc_offset_hours=a.utc_offset)
     else:
         raw = json.loads(src.read_text())
@@ -128,6 +175,10 @@ def cmd_import(a):
         acts = [from_strava_api(x) for x in raw]
     save_acts(a.key, load_acts(a.key) + acts)
     print(f"· {a.key}: imported {len(acts)} activities ({sum(x.is_run for x in acts)} runs)")
+
+
+def cmd_inspect(a):
+    print(google.inspect(a.file))
 
 
 def cmd_demo(a):
@@ -202,14 +253,18 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog="fittree", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = p.add_subparsers(dest="cmd", required=True)
     s = sp.add_parser("auth", help="authorize an athlete via the browser")
-    s.add_argument("key"); s.add_argument("--port", type=int, default=8765); s.add_argument("--no-browser", action="store_true")
-    s.set_defaults(fn=cmd_auth)
-    s = sp.add_parser("exchange", help="print the consent link, or trade a code for a refresh token")
-    s.add_argument("key"); s.add_argument("code", nargs="?"); s.set_defaults(fn=cmd_exchange)
+    s.add_argument("key"); s.add_argument("--port", type=int); s.add_argument("--no-browser", action="store_true")
+    s.add_argument("--provider", choices=["google", "strava"]); s.set_defaults(fn=cmd_auth)
+    s = sp.add_parser("exchange", help="print the consent link, or trade the returned address/code for a token")
+    s.add_argument("key"); s.add_argument("code", nargs="?"); s.add_argument("--provider", choices=["google", "strava"])
+    s.set_defaults(fn=cmd_exchange)
+    s = sp.add_parser("inspect", help="show what an export archive contains")
+    s.add_argument("file"); s.set_defaults(fn=cmd_inspect)
     s = sp.add_parser("sync", help="pull activities from the Strava API")
     s.add_argument("keys", nargs="*"); s.add_argument("--full", action="store_true"); s.set_defaults(fn=cmd_sync)
-    s = sp.add_parser("import", help="import a Strava activities.csv or a JSON list of activities")
+    s = sp.add_parser("import", help="import Google Takeout (.zip/folder), .tcx, Strava activities.csv or JSON")
     s.add_argument("key"); s.add_argument("file"); s.add_argument("--utc-offset", type=float, default=2.0)
+    s.add_argument("--tz", help="IANA time zone for UTC timestamps (default from athletes.json, else Asia/Jerusalem)")
     s.set_defaults(fn=cmd_import)
     s = sp.add_parser("demo", help="write synthetic activities for KEY")
     s.add_argument("key"); s.add_argument("--kind", default="seasoned", choices=["seasoned", "beginner"])
