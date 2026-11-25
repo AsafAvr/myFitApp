@@ -37,6 +37,7 @@ h1 { font: 650 clamp(24px, 4vw, 34px)/1.15 var(--display); letter-spacing: -.015
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font: 600 19px/1.2 var(--hand); color: rgba(255, 245, 225, .82); text-shadow: 0 1px 2px rgba(0,0,0,.5); pointer-events: none; white-space: nowrap; transition: opacity .6s; }
 .hint.paper { color: rgba(80, 55, 30, .75); text-shadow: none; }
+.hint.top { top: 10px; bottom: auto; }
 .tip { position: absolute; pointer-events: none; background: rgba(24,22,16,.92); color: #f6f0e2; border-radius: 10px; padding: 7px 10px; font-size: 12.5px; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .12s; }
 .tip.on { opacity: 1; }
 .controls { display: flex; align-items: center; gap: 10px; padding: 12px 2px; flex-wrap: wrap; }
@@ -53,9 +54,10 @@ footer { color: var(--ink-3); font-size: 12.5px; margin-top: 24px; }
 </head>
 <body>
 <div class="wrap">
-  <h1 id="title">Three little worlds</h1>
+  <h1 id="title">Little worlds</h1>
   <p class="lede" id="lede"></p>
   <nav class="tabs" role="tablist" aria-label="World">
+    <button role="tab" id="tab-inside" data-w="inside">Inside the tree</button>
     <button role="tab" id="tab-jar" data-w="jar">World in a jar</button>
     <button role="tab" id="tab-planet" data-w="planet">Little planet</button>
     <button role="tab" id="tab-journal" data-w="journal">Field journal</button>

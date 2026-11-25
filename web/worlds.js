@@ -621,10 +621,626 @@
     };
   }
 
+  // ============================================================= INSIDE
+  // The tree cut open: a hand-drawn world living inside the trunk.
+  //   cut face rings  = weeks you ran          loft lanterns = latest runs
+  //   library books   = milestones             hearth fire   = weekly streak
+  //   larder jars     = months (filled by km)  root burrows  = weekdays
+  //   sprouts         = recent runs: they carry water up from the roots,
+  //                     and fall asleep by the embers when you stop.
+  function pen(x, pts, rnd, col, w, jit, alpha, passes = 2) {
+    for (let p = 0; p < passes; p++) {
+      x.beginPath();
+      pts.forEach((q, i) => { const X = q[0] + (rnd() - 0.5) * jit, Y = q[1] + (rnd() - 0.5) * jit; i ? x.lineTo(X, Y) : x.moveTo(X, Y); });
+      x.strokeStyle = col; x.globalAlpha = alpha * (0.6 + rnd() * 0.4); x.lineWidth = w * (0.75 + rnd() * 0.5); x.stroke();
+    }
+    x.globalAlpha = 1;
+  }
+  function hatchFill(x, poly, rnd, ang, gap, col, w, alpha) {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    poly.forEach(([a, b]) => { x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); });
+    x.save(); x.beginPath(); poly.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); x.clip();
+    const c = Math.cos(ang), s = Math.sin(ang), diag = Math.hypot(x1 - x0, y1 - y0) + 4, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    x.strokeStyle = col; x.lineWidth = w;
+    for (let d = -diag / 2; d < diag / 2; d += gap * (0.8 + rnd() * 0.4)) {
+      x.globalAlpha = alpha * (0.55 + rnd() * 0.45);
+      x.beginPath(); x.moveTo(mx - c * diag / 2 - s * d + (rnd() - 0.5) * 2, my - s * diag / 2 + c * d); x.lineTo(mx + c * diag / 2 - s * d, my + s * diag / 2 + c * d + (rnd() - 0.5) * 2); x.stroke();
+    }
+    x.restore(); x.globalAlpha = 1;
+  }
+  const rectPoly = (a, b, w, h) => [[a, b], [a + w, b], [a + w, b + h], [a, b + h]];
+  const circlePoly = (cx, cy, r, n = 18) => Array.from({ length: n }, (_, i) => [cx + Math.cos(i / n * TAU) * r, cy + Math.sin(i / n * TAU) * r]);
+
+  function Inside() {
+    let S, st, Lg, D, frames = [], paperC = null, fi = 0, lastBoil = 0, agents = [], hits = [], fx = [], lastT = 0;
+    const INK = 'rgba(46,34,24,0.9)', WOOD = 'rgba(140,92,52,0.95)', u = () => W / 100;
+    const KIND = { easy: [352, 70, 48], long: [8, 72, 50], tempo: [32, 88, 54], hill: [272, 42, 44], race: [44, 88, 52] };
+    const KIND_NAME = { easy: 'easy run', long: 'long run', tempo: 'fast run', hill: 'hilly run', race: 'race' };
+
+    function build() {
+      S = FT.grow(M, T); st = S.st;
+      Lg = geometry();
+      D = contents();
+      Lg.crown = crownMap();
+      paperC = paper();
+      hits = [];
+      frames = [0, 1, 2].map((i) => drawStatic(i));
+      agents = population();
+      fx = [];
+      hint.textContent = D.asleep && S.runsN ? 'Everyone has fallen asleep by the embers. A run wakes them.' : '';
+      hint.className = 'hint paper top';
+    }
+
+    // ------------------------------------------------------------ layout
+    function geometry() {
+      const gy = H * 0.6, cx = W * 0.5, wood = clamp(S.wood / 100);
+      const bw = W * (0.16 + 0.08 * wood), ty = H * 0.3, tw = bw * 0.74;
+      const r0 = FT.rng(M.seed + ':inside');
+      const bumps = [0, 1, 2].map(() => [r0() * TAU, 0.006 + r0() * 0.008]);
+      const half = (y) => {
+        const t = clamp((y - ty) / (gy - ty));
+        let h = lerp(tw, bw, Math.pow(t, 1.25)) * (1 + 0.16 * Math.pow(t, 9));
+        bumps.forEach(([p, a]) => { h += Math.sin(y / H * 16 + p) * a * W; });
+        return h;
+      };
+      const ring = Math.max(10, bw * 0.17);
+      const y0 = ty + H * 0.04, y1 = gy + H * 0.1, span = y1 - y0;
+      const fl = { loft: y0 + span * 0.27, lib: y0 + span * 0.52, hearth: gy, cellar: y1 - H * 0.008 };
+      const inner = (y) => (y <= gy ? half(y) - ring : (half(gy) - ring) * (1 - 0.35 * Math.pow(clamp((y - gy) / (y1 - gy)), 2)));
+      const arch = span * 0.14, low = span * 0.08;
+      const wAt = (y) => {
+        let w = inner(y);
+        if (y < y0 + arch) w *= Math.sqrt(clamp(1 - Math.pow((y0 + arch - y) / arch, 2)));
+        if (y > y1 - low) w *= Math.sqrt(clamp(1 - Math.pow((y - (y1 - low)) / low, 2)));
+        return w;
+      };
+      const open = [];
+      for (let i = 0; i <= 70; i++) { const y = y0 + span * i / 70; open.push([cx - wAt(y), y]); }
+      for (let i = 70; i >= 0; i--) { const y = y0 + span * i / 70; open.push([cx + wAt(y), y]); }
+      const trunk = [];
+      for (let i = 0; i <= 50; i++) { const y = ty + (gy + H * 0.012 - ty) * i / 50; trunk.push([cx - half(y), y]); }
+      for (let i = 50; i >= 0; i--) { const y = ty + (gy + H * 0.012 - ty) * i / 50; trunk.push([cx + half(y), y]); }
+      const lw = Math.min(inner(fl.loft), inner(y1 - low));
+      return { gy, cx, bw, tw, ty, half, ring, y0, y1, span, fl, inner, wAt, open, trunk, ladderX: cx + lw * 0.62, sapX: cx - inner(fl.lib) * 0.8 };
+    }
+
+    function contents() {
+      const runsT = runsAt(T);
+      const fruits = S.fruits.slice().sort((a, b) => a.run.day - b.run.day).slice(-9);
+      const ms = M.ms.filter((m) => m.day <= T).slice(-28);
+      const months = M.months.filter((m) => m.d0 <= T).map((m) => ({ label: m.label, km: runsT.filter((r) => r.mkey === m.key).reduce((a, r) => a + r.km, 0) })).slice(-16);
+      const asleep = runsT.length === 0 || st.dormant > 7;
+      return {
+        runsT, fruits, ms, months, asleep,
+        fire: asleep ? 0.06 : clamp(0.28 + st.streak / 10),
+        r28: runsT.filter((r) => T - r.day < 28),
+        drops: runsT.filter((r) => T - r.day < 10).map((r) => ({ km: r.km, ph: (r.id % 97) / 97 })),
+      };
+    }
+
+    // map the grown crown (twigs, leaves, fruit) into the space above the trunk
+    function crownMap() {
+      let x0 = 1e9, x1 = -1e9, ya = 1e9, yb = -1e9;
+      const take = (x, y) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); ya = Math.min(ya, y); yb = Math.max(yb, y); };
+      S.twigs.forEach((t) => t.pts.forEach((p) => take(p.x, p.y)));
+      S.leaves.forEach((L) => take(L.x, L.y));
+      if (x0 > x1) { x0 = -40; x1 = 40; ya = -S.H; yb = -S.H * 0.5; }
+      const top = H * 0.035, bottom = Lg.ty + H * 0.05, left = W * 0.05, right = W * 0.95;
+      const kx = (right - left) / Math.max(40, x1 - x0), ky = (bottom - top) / Math.max(30, yb - ya);
+      const k = Math.min(kx, ky * 1.25);
+      const kxx = Math.min(kx, k * 1.35);
+      const ox = W / 2 - kxx * (x0 + x1) / 2;
+      return { k, map: (x, y) => [ox + x * kxx, top + (y - ya) * ky] };
+    }
+
+    // ------------------------------------------------------------ paper
+    function paper() {
+      const c = mk(W * dpr, H * dpr), x = c.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const g = x.createRadialGradient(W * 0.5, H * 0.42, W * 0.15, W * 0.5, H * 0.5, W * 0.95);
+      g.addColorStop(0, '#f7f0dd'); g.addColorStop(1, '#e2d2ad');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      const rr = FT.rng('paper2');
+      for (let i = 0; i < 3200; i++) { x.fillStyle = rr() < 0.5 ? `rgba(120,95,60,${rr() * 0.07})` : `rgba(255,255,255,${rr() * 0.22})`; x.fillRect(rr() * W, rr() * H, 1 + rr() * 2, 0.6); }
+      return c;
+    }
+
+    // ------------------------------------------------------------ static drawing (three boil frames)
+    function drawStatic(i) {
+      const c = mk(W * dpr, H * dpr), x = c.getContext('2d'), rnd = FT.rng('inside-boil' + i);
+      x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(paperC, 0, 0);
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.lineCap = 'round'; x.lineJoin = 'round';
+      x.globalCompositeOperation = 'multiply';
+      landscape(x, rnd, i);
+      soil(x, rnd, i);
+      roots(x, rnd, i);
+      trunk(x, rnd);
+      rooms(x, rnd, i);
+      crown(x, rnd, i);
+      x.globalCompositeOperation = 'source-over';
+      caption(x);
+      return c;
+    }
+
+    function landscape(x, rnd) {
+      const gy = Lg.gy, hy = gy - H * 0.035;
+      for (let k = 0; k < 2; k++) {
+        const pts = []; for (let X = -10; X <= W + 10; X += 10) pts.push([X, hy - k * H * 0.02 - Math.sin(X / W * 5 + k * 2) * H * 0.012 - Math.sin(X / W * 13 + k) * H * 0.005]);
+        pen(x, pts, rnd, `rgba(90,110,80,${0.35 - k * 0.12})`, 0.8, 0.8, 0.8, 1);
+      }
+      const rr = FT.rng('copses');
+      for (let i = 0; i < 9; i++) {      // distant trees, a few strokes each
+        const X = rr() * W; if (Math.abs(X - Lg.cx) < Lg.bw * 1.4) continue;
+        const Y = hy - H * 0.012 - rr() * H * 0.01, r = W * (0.008 + rr() * 0.01);
+        x.strokeStyle = 'rgba(100,125,85,0.45)'; x.lineWidth = 0.8;
+        for (let k = 0; k < 7; k++) { const a = rnd() * TAU; x.beginPath(); x.arc(X + Math.cos(a) * r * 0.4, Y + Math.sin(a) * r * 0.3, r * (0.5 + rnd() * 0.4), 0, TAU); x.stroke(); }
+        pen(x, [[X, Y + r], [X, hy]], rnd, 'rgba(90,70,50,0.5)', 0.7, 0.3, 0.7, 1);
+      }
+      const gl = []; for (let X = -10; X <= W + 10; X += 9) gl.push([X, gy + Math.sin(X / 41) * 1.2]);
+      pen(x, gl, rnd, INK, 1.2, 1.2, 0.85);
+      const [gh, gs, gll] = seasonRGB(S.season * 0.85 + 0.1);
+      for (let X = 0; X < W; X += 3 + rnd() * 5) {
+        if (Math.abs(X - Lg.cx) < Lg.half(gy) * 0.98) continue;
+        pen(x, [[X, gy], [X + (rnd() - 0.5) * 4, gy - 3 - rnd() * 8]], rnd, S.winter ? 'rgba(130,120,100,0.8)' : hsl(gh, gs * 0.7, gll * 0.95), 0.9, 0.4, 0.75, 1);
+      }
+    }
+
+    function soil(x, rnd) {
+      const gy = Lg.gy, m = S.moisture, bottom = H * 0.95;
+      const ink = m > 0.5 ? 'rgba(70,48,30,' : 'rgba(120,90,60,';
+      for (let i = 0; i < 1500; i++) {
+        const t = Math.pow(rnd(), 1.4), y = gy + 3 + t * (bottom - gy);
+        x.fillStyle = ink + (0.12 + rnd() * 0.32) * (1 - t * 0.7) * (0.6 + m * 0.6) + ')';
+        x.fillRect(rnd() * W, y, 1.1, 1.1);
+      }
+      hatchFill(x, [[0, gy + 2], [W, gy + 2], [W, gy + H * 0.05], [0, gy + H * 0.05]], rnd, 0.15, m > 0.5 ? 3 : 6, 'rgba(110,75,45,0.8)', 0.7, 0.35 + 0.35 * m);
+      const rr = FT.rng('stones');
+      for (let i = 0; i < 16; i++) {
+        const X = rr() * W, Y = gy + H * 0.04 + rr() * (bottom - gy - H * 0.06), r = W * (0.006 + rr() * 0.012);
+        if (Math.abs(X - Lg.cx) < Lg.half(gy) * 0.9 && Y < Lg.y1 + 6) continue;
+        pen(x, circlePoly(X, Y, r, 10).concat([circlePoly(X, Y, r, 10)[0]]).map(([a, b]) => [a, b + (a - X) * 0.1]), rnd, 'rgba(90,80,70,0.7)', 0.8, 0.8, 0.7, 1);
+      }
+      if (m < 0.42) {      // dry: cracks in the topsoil
+        for (let i = 0; i < Math.round(26 * (1 - m)); i++) {
+          let X = rnd() * W, Y = gy + 2; const pts = [[X, Y]];
+          for (let k = 0; k < 4; k++) { X += (rnd() - 0.5) * 8; Y += 3 + rnd() * 6; pts.push([X, Y]); }
+          pen(x, pts, rnd, 'rgba(70,45,25,0.8)', 0.9, 0.5, 0.8, 1);
+        }
+      }
+    }
+
+    function roots(x, rnd) {
+      const { cx, y1 } = Lg, bottom = H * 0.86;
+      Lg.roots = [];
+      const max = Math.max(1, ...S.roots.map((r) => r.runs));
+      S.roots.forEach((rt, i) => {
+        const side = (i - 3) / 3;               // weekday order, left to right
+        const ang = lerp(Math.PI * 0.92, Math.PI * 0.08, i / 6) + (FT.rng(M.seed + ':ir' + i)() - 0.5) * 0.2;
+        const len = (0.1 + 0.26 * Math.sqrt(rt.runs / max)) * W * (rt.runs ? 1 : 0.45);
+        const thick = Math.max(2.5, W * (0.006 + 0.03 * Math.sqrt(rt.share)));
+        const sx = cx + side * Lg.inner(y1 - 4) * 0.7, sy = y1 - H * 0.01;
+        const pts = [];
+        const rr = FT.rng(M.seed + ':irp' + i);
+        let px = sx, py = sy, a = Math.PI / 2 - (Math.PI / 2 - ang) * 0.75;
+        for (let k = 0; k <= 14; k++) {
+          pts.push([px, py]);
+          a += (rr() - 0.5) * 0.35 + (Math.PI / 2 - a) * 0.04;
+          px += Math.cos(a) * len / 14 * (1 + Math.abs(side) * 0.6); py += Math.sin(a) * len / 14 * 0.75;
+          py = Math.min(py, bottom - 8); px = clamp(px, W * 0.06, W * 0.94);
+        }
+        const widthAt = (k) => thick * (1 - 0.65 * k / 14);
+        const L = [], Rr = [];
+        pts.forEach(([X, Y], k) => {
+          const q = pts[Math.min(14, k + 1)], p0 = pts[Math.max(0, k - 1)];
+          const dx = q[0] - p0[0], dy = q[1] - p0[1], d = Math.hypot(dx, dy) || 1, w = widthAt(k);
+          L.push([X - dy / d * w, Y + dx / d * w]); Rr.push([X + dy / d * w, Y - dx / d * w]);
+        });
+        hatchFill(x, [...L, ...Rr.slice().reverse()], rnd, 0.8, 2.6, rt.strongest ? 'rgba(160,100,50,0.95)' : 'rgba(130,90,55,0.85)', 0.8, 0.7);
+        pen(x, L, rnd, 'rgba(90,60,35,0.9)', 1, 0.8, 0.85);
+        pen(x, Rr, rnd, 'rgba(90,60,35,0.9)', 1, 0.8, 0.85);
+        if (thick > 5) pen(x, pts, rnd, 'rgba(250,236,205,0.9)', thick * 0.55, 0.5, 0.65, 1);   // the tunnel inside the root
+        // the burrow at the tip
+        const [bx, by] = pts[14], br = Math.max(6, thick * 1.6);
+        hatchFill(x, circlePoly(bx, by, br), rnd, -0.6, 2.4, 'rgba(120,80,45,0.8)', 0.7, 0.55);
+        pen(x, circlePoly(bx, by, br, 16).concat([circlePoly(bx, by, br, 16)[0]]), rnd, 'rgba(80,55,30,0.9)', 1, 0.8, 0.85);
+        x.fillStyle = 'rgba(70,45,25,0.85)'; x.font = `600 ${Math.round(W * 0.026)}px Caveat, cursive`; x.textAlign = 'center';
+        x.fillText(rt.day, bx, by + br + W * 0.03);
+        Lg.roots.push({ pts, burrow: [bx, by], br, rt });
+        hits.push({ x: bx, y: by, r: br + 8, text: `${rt.day} root — ${rt.runs} runs, ${rt.km.toFixed(0)} km${rt.strongest ? ' · your anchor day' : ''}` });
+      });
+    }
+
+    function trunk(x, rnd) {
+      const { trunk: tp, open, cx, gy, ty } = Lg;
+      // bark: hatched, darker on the right
+      hatchFill(x, tp, rnd, 1.25, 3.2, 'rgba(110,72,42,0.9)', 0.9, 0.55);
+      hatchFill(x, tp.filter(([a]) => a >= cx - 1).concat([[cx, gy], [cx, ty]]), rnd, -1.1, 3, 'rgba(60,42,30,0.9)', 0.8, 0.45);
+      for (let i = 0; i < 40; i++) {
+        const y = ty + rnd() * (gy - ty), side = rnd() < 0.5 ? -1 : 1, X = cx + side * Lg.half(y) * (0.86 + rnd() * 0.12);
+        pen(x, [[X, y], [X + (rnd() - 0.5) * 2, y - 6 - rnd() * 14]], rnd, 'rgba(60,40,25,0.75)', 0.8, 0.4, 0.7, 1);
+      }
+      const half = tp.length / 2;
+      pen(x, tp.slice(0, half), rnd, INK, 1.6, 1.2, 0.95);
+      pen(x, tp.slice(half), rnd, INK, 1.6, 1.2, 0.95);
+      // the cut face: pale wood with one ring per week you ran
+      x.save(); x.beginPath(); tp.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath();
+      open.slice().reverse().forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath();
+      x.fillStyle = 'rgba(236,206,150,0.55)'; x.fill('evenodd');
+      x.restore();
+      const weeks = M.weeks.slice(0, st.wk + 1);
+      const shown = weeks.slice(-36), ringW = Lg.ring * 0.82;
+      shown.forEach((w, k) => {
+        const f = (k + 1) / (shown.length + 1);
+        const pts = open.map(([a, b]) => { const dx = a - cx, sgn = Math.sign(dx) || 1; return [a + sgn * ringW * f, b - (b < Lg.y0 + Lg.span * 0.2 ? ringW * f * 0.8 : 0)]; });
+        const col = w.runs ? `rgba(150,100,55,${0.25 + w.strength * 0.4})` : 'rgba(70,40,20,0.85)';
+        pen(x, pts.filter((_, i) => i % 2 === 0), rnd, col, w.runs ? 0.6 : 1.4, 0.5, 0.8, 1);
+      });
+      pen(x, open.concat([open[0]]), rnd, INK, 1.4, 1, 0.9);
+      hits.push({ poly: tp, text: `${st.activeWeeks} growth rings in the cut — one for each week with a run` });
+      // the hollow: warm, shadowed wood
+      x.save(); x.beginPath(); open.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); x.clip();
+      x.fillStyle = 'rgba(176,120,70,0.55)'; x.fillRect(0, 0, W, H);
+      x.restore();
+      hatchFill(x, open, rnd, 0.9, 2.8, 'rgba(120,70,35,0.9)', 0.8, 0.5);
+      hatchFill(x, open.filter(([a]) => a > cx), rnd, -0.9, 3.2, 'rgba(70,40,20,0.9)', 0.8, 0.35);
+    }
+
+    function rooms(x, rnd) {
+      const { cx, fl, y0, y1, gy, ladderX, sapX, inner } = Lg, U = u();
+      const floor = (y, gapX) => {
+        const w = inner(y) * 0.995, th = H * 0.011;
+        [[cx - w, gapX - U * 2.4], [gapX + U * 2.4, cx + w]].forEach(([a, b]) => {
+          if (b - a < 4) return;
+          hatchFill(x, rectPoly(a, y, b - a, th), rnd, 0.1, 2.2, 'rgba(120,80,45,0.95)', 0.8, 0.8);
+          pen(x, [[a, y], [b, y]], rnd, INK, 1.1, 0.6, 0.9); pen(x, [[a, y + th], [b, y + th]], rnd, INK, 0.8, 0.6, 0.7, 1);
+          for (let X = a + U * 4; X < b; X += U * 5 + rnd() * U * 2) pen(x, [[X, y], [X, y + th]], rnd, INK, 0.6, 0.3, 0.6, 1);
+        });
+      };
+      floor(fl.loft, ladderX); floor(fl.lib, ladderX);
+      // ladder from the larder to the loft
+      const lt = fl.loft - U * 0.4, lb = fl.cellar - U * 0.5;
+      pen(x, [[ladderX - U * 1.6, lb], [ladderX - U * 1.6, lt]], rnd, WOOD, 1.4, 0.6, 0.95);
+      pen(x, [[ladderX + U * 1.6, lb], [ladderX + U * 1.6, lt]], rnd, WOOD, 1.4, 0.6, 0.95);
+      for (let y = lb - U * 1.5; y > lt; y -= U * 2.4) pen(x, [[ladderX - U * 1.6, y], [ladderX + U * 1.6, y]], rnd, WOOD, 1, 0.5, 0.9, 1);
+      // the sap channel: water rising from the roots to the leaves
+      [-1, 1].forEach((s) => pen(x, [[sapX + s * U * 0.9, y1 - H * 0.02], [sapX + s * U * 0.9, Lg.ty - H * 0.01]], rnd, 'rgba(70,110,140,0.8)', 0.9, 0.6, 0.85));
+      hatchFill(x, rectPoly(sapX - U * 0.9, Lg.ty, U * 1.8, y1 - Lg.ty - H * 0.02), rnd, 1.5, 2, 'rgba(120,170,200,0.9)', 0.6, 0.35);
+      hits.push({ rect: [sapX - U * 2, Lg.ty, U * 4, y1 - Lg.ty], text: D.drops.length ? `The sap channel — ${D.drops.length} drop${D.drops.length > 1 ? 's' : ''} rising, one for each run in the last 10 days` : 'The sap channel — dry; it fills after a run' });
+
+      // ---- library: one book per milestone
+      const shelfL = sapX + U * 3, shelfR = ladderX - U * 3.2, rh = fl.lib - fl.loft;
+      const shelves = [fl.lib - rh * 0.08, fl.lib - rh * 0.52];
+      shelves.forEach((sy) => { pen(x, [[shelfL - U, sy], [shelfR + U, sy]], rnd, WOOD, 2, 0.6, 0.95); });
+      let bx = shelfL, si = 0;
+      const BOOK = { First: [0, 65, 45], km: [140, 40, 38], runs: [212, 45, 45], other: [36, 60, 45] };
+      D.ms.forEach((m) => {
+        const kind = /^First|marathon/i.test(m.label) ? 'First' : /km/.test(m.label) ? 'km' : /runs/.test(m.label) ? 'runs' : 'other';
+        const bw = U * (1.3 + (kind === 'First' ? 0.6 : 0)), bh = rh * (0.26 + (kind === 'First' ? 0.1 : 0) + rnd() * 0.04);
+        if (bx + bw > shelfR) { bx = shelfL; si++; }
+        if (si > 1) return;
+        const sy = shelves[si], col = BOOK[kind];
+        hatchFill(x, rectPoly(bx, sy - bh, bw, bh), rnd, 1.4, 1.6, hsl(col[0], col[1], col[2]), 0.8, 0.85);
+        pen(x, [[bx, sy], [bx, sy - bh], [bx + bw, sy - bh], [bx + bw, sy]], rnd, INK, 0.7, 0.4, 0.8, 1);
+        hits.push({ rect: [bx, sy - bh, bw, bh], text: `📖 ${m.label} · ${m.t.slice(0, 10)}` });
+        bx += bw + U * 0.25;
+      });
+      if (!D.ms.length) { x.fillStyle = 'rgba(70,45,25,0.7)'; x.font = `600 ${Math.round(W * 0.028)}px Caveat, cursive`; x.textAlign = 'center'; x.fillText('empty shelves, for now', (shelfL + shelfR) / 2, shelves[0] - rh * 0.15); }
+      hits.push({ rect: [shelfL, fl.loft, shelfR - shelfL, rh], text: `The library — ${D.ms.length} book${D.ms.length === 1 ? '' : 's'}, one for every milestone` });
+
+      // ---- hearth: the fire is the weekly streak
+      const hx = cx - inner(gy - 4) * 0.28, hw = Math.min(U * 11, inner(gy) * 0.5), hh = (gy - fl.lib) * 0.55;
+      Lg.hearth = { x: hx, y: gy, w: hw, h: hh };
+      for (let k = 0; k < 14; k++) {      // stone arch
+        const a = Math.PI + (k / 13) * Math.PI, r = hw * 0.62;
+        const sx = hx + Math.cos(a) * r, sy = gy - hh * 0.55 + Math.sin(a) * r * 0.9;
+        pen(x, circlePoly(sx, sy, U * 1.3, 8).concat([circlePoly(sx, sy, U * 1.3, 8)[0]]), rnd, 'rgba(90,85,80,0.9)', 0.9, 0.6, 0.85, 1);
+      }
+      [[-1], [1]].forEach(([s]) => { for (let y = gy - hh * 0.55; y < gy; y += U * 2.4) pen(x, circlePoly(hx + s * hw * 0.62, y + U, U * 1.25, 8).concat([circlePoly(hx + s * hw * 0.62, y + U, U * 1.25, 8)[0]]), rnd, 'rgba(90,85,80,0.9)', 0.9, 0.6, 0.85, 1); });
+      hatchFill(x, [[hx - hw * 0.5, gy], [hx - hw * 0.5, gy - hh * 0.55], [hx + hw * 0.5, gy - hh * 0.55], [hx + hw * 0.5, gy]], rnd, 0.6, 2.4, 'rgba(40,25,15,0.9)', 0.9, 0.55);
+      pen(x, [[hx - hw * 0.85, gy - hh * 1.08], [hx + hw * 0.85, gy - hh * 1.08]], rnd, WOOD, 2.6, 0.6, 0.95);       // mantel
+      const rx = hx + hw * 0.9;           // a rug and two stools
+      hatchFill(x, Array.from({ length: 20 }, (_, i) => [rx + Math.cos(i / 20 * TAU) * U * 9, gy - U * 0.6 + Math.sin(i / 20 * TAU) * U * 1.2]), rnd, 0.3, 1.8, 'rgba(170,60,50,0.85)', 0.8, 0.6);
+      [rx - U * 4, rx + U * 4.5].forEach((sx) => { pen(x, [[sx - U * 1.5, gy - U * 2.6], [sx + U * 1.5, gy - U * 2.6]], rnd, WOOD, 1.6, 0.4, 0.9); pen(x, [[sx - U, gy - U * 2.6], [sx - U * 1.3, gy]], rnd, WOOD, 0.9, 0.4, 0.9, 1); pen(x, [[sx + U, gy - U * 2.6], [sx + U * 1.3, gy]], rnd, WOOD, 0.9, 0.4, 0.9, 1); });
+      hits.push({ rect: [hx - hw, gy - hh * 1.1, hw * 2, hh * 1.1], text: D.asleep ? 'The hearth — only embers left. A run rekindles it.' : `The hearth — burning for a ${st.streak}-week streak` });
+
+      // ---- larder: one jar per month, filled by its kilometres
+      const cl = cx - inner(gy + 6) * 0.86, cr = ladderX - U * 3, chh = fl.cellar - gy;
+      const jarShelves = [gy + chh * 0.48, gy + chh * 0.92];
+      jarShelves.forEach((sy) => pen(x, [[cl, sy], [cr, sy]], rnd, WOOD, 1.8, 0.5, 0.9));
+      const maxKm = Math.max(1, ...D.months.map((m) => m.km));
+      const perShelf = Math.max(1, Math.floor((cr - cl) / (U * 3.4)));
+      D.months.slice(-perShelf * 2).forEach((m, k) => {
+        const row = Math.floor(k / perShelf), col = k % perShelf;
+        const jx = cl + U * 0.6 + col * U * 3.4, sy = jarShelves[row], jh = chh * 0.34, jw = U * 2.6;
+        const fill = m.km / maxKm;
+        if (fill > 0) hatchFill(x, rectPoly(jx + 1, sy - jh * fill * 0.86, jw - 2, jh * fill * 0.86), rnd, 1.2, 1.4, 'rgba(225,150,40,0.95)', 0.9, 0.85);
+        pen(x, [[jx, sy - jh * 0.88], [jx, sy], [jx + jw, sy], [jx + jw, sy - jh * 0.88]], rnd, 'rgba(70,90,100,0.85)', 0.8, 0.5, 0.85, 1);
+        pen(x, [[jx - U * 0.2, sy - jh * 0.9], [jx + jw + U * 0.2, sy - jh * 0.9]], rnd, 'rgba(140,60,40,0.9)', 2, 0.3, 0.9, 1);
+        hits.push({ rect: [jx, sy - jh, jw, jh], text: `🫙 ${m.label} — ${m.km.toFixed(0)} km` });
+      });
+      hits.push({ rect: [cl, gy, cr - cl, chh], text: `The larder — a jar for every month, filled by its kilometres` });
+    }
+
+    function crown(x, rnd) {
+      const C = Lg.crown, map = C.map, { cx, tw, ty } = Lg;
+      const anchorFor = (X) => { const dx = clamp(X - cx, -tw * 0.85, tw * 0.85); return [cx + dx, ty + H * 0.01 + Math.abs(dx) / tw * H * 0.025]; };
+      // limbs (months) rise out of the trunk top
+      Lg.limbPts = {};
+      S.limbs.forEach((l) => {
+        const m = l.pts.map((p) => map(p.x, p.y));
+        const a = anchorFor(m[Math.floor(m.length * 0.4)][0]);
+        const path = [a, ...m.slice(Math.floor(m.length * 0.35))];
+        const w = Math.max(1.4, (1.6 + 4.5 * l.vigor) * (W / 600));
+        const tube = path.map(([X, Y], k) => ({ x: X, y: Y, r: w * (1 - 0.7 * k / (path.length - 1)) }));
+        const [lo, ro] = FT.geom.outline(tube);
+        hatchFill(x, [...lo, ...ro.slice().reverse()], rnd, 1.1, 2, 'rgba(120,80,45,0.9)', 0.7, 0.55);
+        pen(x, lo, rnd, INK, 0.9, 0.8, 0.85, 1);
+        pen(x, ro, rnd, INK, 0.9, 0.8, 0.85, 1);
+        Lg.limbPts[l.li] = path;
+      });
+      S.branches.forEach((b) => pen(x, b.pts.map((p) => map(p.x, p.y)), rnd, INK, Math.max(0.8, b.pts[0].r * C.k * 0.9), 0.9, 0.75));
+      S.twigs.forEach((t) => { pen(x, t.pts.map((p) => map(p.x, p.y)), rnd, INK, 0.8, 0.8, 0.7, 1); t.fine.forEach((f) => pen(x, f.map((p) => map(p.x, p.y)), rnd, INK, 0.5, 0.5, 0.5, 1)); });
+      // leaves: a stroke of colour and a pencil outline
+      S.leaves.forEach((Lf) => {
+        if (rnd() < 0.25) return;
+        const [lx, ly] = map(Lf.x, Lf.y), len = Lf.size * C.k * 0.85 + 3, a = Lf.ang + (rnd() - 0.5) * 0.2;
+        const c = Math.cos(a), s = Math.sin(a), w = len * 0.32;
+        x.globalAlpha = 0.6; x.strokeStyle = hsl(Lf.h, Lf.s * 0.75, Math.min(64, Lf.l + 12)); x.lineWidth = Math.max(1.4, w);
+        x.beginPath(); x.moveTo(lx + c * len * 0.2, ly + s * len * 0.2); x.lineTo(lx + c * len * 0.8, ly + s * len * 0.8); x.stroke();
+        x.globalAlpha = 0.65; x.strokeStyle = hsl(Lf.h, Lf.s * 0.6, Math.max(14, Lf.l * 0.5)); x.lineWidth = 0.6;
+        x.beginPath(); x.moveTo(lx, ly); x.quadraticCurveTo(lx + c * len * 0.5 - s * w, ly + s * len * 0.5 + c * w, lx + c * len, ly + s * len);
+        x.quadraticCurveTo(lx + c * len * 0.5 + s * w, ly + s * len * 0.5 - c * w, lx, ly); x.stroke();
+      });
+      x.globalAlpha = 1;
+      S.blossoms.forEach((b) => { const [bx, by] = map(b.x, b.y), r = 2.2; for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + b.rot; pen(x, circlePoly(bx + Math.cos(a) * r, by + Math.sin(a) * r, r * 0.7, 7).concat([circlePoly(bx + Math.cos(a) * r, by + Math.sin(a) * r, r * 0.7, 7)[0]]), rnd, 'rgba(215,95,135,0.85)', 0.7, 0.3, 0.8, 1); } });
+      S.fruits.forEach((f) => {
+        const [fx, fy0] = map(f.x, f.y), r = Math.max(2.6, f.size * C.k * 0.7), fy = fy0 + r * 1.6, col = KIND[f.kind];
+        pen(x, [[fx, fy0], [fx, fy - r]], rnd, INK, 0.7, 0.3, 0.8, 1);
+        hatchFill(x, circlePoly(fx, fy, r, 12), rnd, 0.9, 1.3, hsl(col[0], col[1], col[2]), 1, 0.9);
+        pen(x, circlePoly(fx, fy, r, 14).concat([circlePoly(fx, fy, r, 14)[0]]), rnd, INK, 0.7, 0.4, 0.8, 1);
+        hits.push({ x: fx, y: fy, r: r + 6, text: `${KIND_NAME[f.kind]} · ${f.run.km.toFixed(1)} km · ${fmtDate(f.run.day, { year: undefined })}` });
+      });
+      if (S.nest) {
+        const [nx, ny] = map(S.nest.x, S.nest.y), s = W * 0.025;
+        for (let i = 0; i < 7; i++) pen(x, [[nx - s, ny - rnd() * 2], [nx, ny + s * 0.5 + rnd() * 2], [nx + s, ny - rnd() * 2]], rnd, 'rgba(110,75,40,0.85)', 0.8, 1.4, 0.7, 1);
+        for (let e = 0; e < S.nest.eggs; e++) hatchFill(x, circlePoly(nx - s * 0.7 + e * (s * 1.4 / Math.max(1, S.nest.eggs - 1)), ny - s * 0.25, s * 0.2, 8), rnd, 0.5, 1.2, 'rgba(90,160,190,0.9)', 0.8, 0.9);
+        hits.push({ x: nx, y: ny, r: s * 1.4, text: `Nest — ${S.nest.streak}-week streak, ${S.nest.eggs} egg${S.nest.eggs > 1 ? 's' : ''}` });
+      }
+      if (S.swing && Lg.limbPts[S.swing.li]) {
+        const lp = Lg.limbPts[S.swing.li], [sx, sy] = lp[Math.floor(lp.length * 0.55)], bot = Lg.gy - H * 0.04, hw = W * 0.025;
+        if (bot - sy > H * 0.08 && Math.abs(sx - cx) > Lg.half(sy + 1) + hw) {
+          pen(x, [[sx - hw, sy], [sx - hw, bot]], rnd, INK, 0.8, 0.6, 0.8, 1); pen(x, [[sx + hw, sy], [sx + hw, bot]], rnd, INK, 0.8, 0.6, 0.8, 1);
+          pen(x, [[sx - hw - 3, bot], [sx + hw + 3, bot]], rnd, 'rgba(120,80,40,0.9)', 2.6, 0.5, 0.9);
+          hits.push({ rect: [sx - hw - 4, sy, hw * 2 + 8, bot - sy], text: 'The swing — 26 weeks with a run' });
+        }
+      }
+    }
+
+    function caption(x) {
+      x.fillStyle = 'rgba(80,55,30,0.8)'; x.textAlign = 'left';
+      x.font = `700 ${Math.round(W * 0.05)}px Caveat, cursive`; x.fillText(`${name}'s tree`, W * 0.05, H * 0.975);
+      x.textAlign = 'right'; x.font = `600 ${Math.round(W * 0.03)}px Caveat, cursive`;
+      x.fillText(`${fmtDate(T)} · ${S.runsN} runs · ${Math.round(S.kmT)} km`, W * 0.95, H * 0.975);
+    }
+
+    // ------------------------------------------------------------ the inhabitants
+    function population() {
+      const A = [];
+      if (!S.runsN) return A;
+      const { fl, gy, ladderX, cx, inner } = Lg, U = u();
+      const rug = Lg.hearth.x + Lg.hearth.w * 0.9;
+      if (D.asleep) {
+        const n = Math.min(6, 2 + Math.floor(S.runsN / 25));
+        for (let i = 0; i < n; i++) A.push({ role: 'sleep', x: rug - U * 6 + i * U * 2.6, y: gy - U * 0.4, ph: i * 1.3 });
+        return A;
+      }
+      const carriers = Math.min(10, Math.ceil(D.r28.length * 0.5));
+      const order = Lg.roots.map((r, i) => i).sort((a, b) => Lg.roots[b].rt.runs - Lg.roots[a].rt.runs);
+      for (let i = 0; i < carriers; i++) {
+        const R = Lg.roots[order[i % order.length]];
+        const path = R.pts.slice().reverse().map(([X, Y]) => [X, Y]);
+        path.push([ladderX, fl.cellar - U * 0.3]);
+        path.push([ladderX, fl.loft]);
+        path.push([ladderX - U * 6 - (i % 3) * U * 3, fl.loft]);
+        A.push(walker('carry', path, i / carriers));
+      }
+      const sitters = 1 + (st.streak >= 4) + (st.streak >= 8);
+      for (let i = 0; i < sitters; i++) A.push({ role: 'sit', x: rug + (i - 1) * U * 4.2, y: gy - U * 2.6 - U * 0.2, ph: i * 2.1 });
+      if (D.ms.length) A.push({ role: 'read', x: cx - inner(fl.lib) * 0.15, y: fl.lib, ph: 0.7 });
+      if (D.months.length >= 3) A.push(walker('keep', [[cx - inner(gy + 6) * 0.8, fl.cellar - U * 0.3], [ladderX - U * 4, fl.cellar - U * 0.3]], 0.3));
+      return A;
+    }
+    function walker(role, path, phase) {
+      const seg = []; let total = 0;
+      for (let i = 1; i < path.length; i++) { const d = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); seg.push(d); total += d; }
+      return { role, path, seg, total, s: phase * total, dir: 1, speed: W * (role === 'keep' ? 0.02 : 0.045) * (0.8 + phase * 0.4) };
+    }
+    function along(a) {
+      let s = a.s;
+      for (let i = 0; i < a.seg.length; i++) {
+        if (s <= a.seg[i] || i === a.seg.length - 1) {
+          const t = a.seg[i] ? clamp(s / a.seg[i]) : 0, p = a.path[i], q = a.path[i + 1];
+          return { x: lerp(p[0], q[0], t), y: lerp(p[1], q[1], t), climb: Math.abs(q[0] - p[0]) < 1 && Math.abs(q[1] - p[1]) > 1, dx: q[0] - p[0] };
+        }
+        s -= a.seg[i];
+      }
+      return { x: a.path[0][0], y: a.path[0][1], climb: false, dx: 1 };
+    }
+    function sprout(x, X, Y, s, o) {
+      const step = o.step, face = o.face || 1;
+      x.save(); x.translate(X, Y);
+      if (o.sleep) { x.rotate(-1.35); }
+      x.lineCap = 'round';
+      // legs
+      x.strokeStyle = 'rgba(60,45,30,0.95)'; x.lineWidth = Math.max(1, s * 0.12);
+      if (!o.sit && !o.sleep) {
+        const k = o.climb ? (step ? 0.5 : -0.5) : (step ? 0.45 : -0.45);
+        x.beginPath(); x.moveTo(-s * 0.18, -s * 0.35); x.lineTo(-s * 0.18 + k * s * 0.4, 0); x.stroke();
+        x.beginPath(); x.moveTo(s * 0.18, -s * 0.35); x.lineTo(s * 0.18 - k * s * 0.4, 0); x.stroke();
+      } else { x.beginPath(); x.moveTo(-s * 0.2, -s * 0.3); x.lineTo(-s * 0.35, -s * 0.05); x.moveTo(s * 0.2, -s * 0.3); x.lineTo(s * 0.35, -s * 0.05); x.stroke(); }
+      // body: a round seed
+      const bob = o.bob || 0;
+      x.fillStyle = '#f2e6c8'; x.strokeStyle = 'rgba(60,45,30,0.95)'; x.lineWidth = Math.max(0.9, s * 0.08);
+      x.beginPath(); x.ellipse(0, -s * 0.72 + bob, s * 0.52, s * 0.48, 0, 0, TAU); x.fill(); x.stroke();
+      x.strokeStyle = 'rgba(180,150,110,0.6)'; x.lineWidth = s * 0.05;
+      x.beginPath(); x.arc(-s * 0.08, -s * 0.66 + bob, s * 0.3, 0.3, 1.6); x.stroke();
+      // eyes
+      x.fillStyle = 'rgba(40,30,20,0.95)'; x.strokeStyle = 'rgba(40,30,20,0.95)'; x.lineWidth = s * 0.06;
+      if (o.sleep || o.blink) { x.beginPath(); x.moveTo(face * s * 0.02, -s * 0.78 + bob); x.lineTo(face * s * 0.14, -s * 0.78 + bob); x.moveTo(face * s * 0.24, -s * 0.78 + bob); x.lineTo(face * s * 0.36, -s * 0.78 + bob); x.stroke(); }
+      else { x.beginPath(); x.arc(face * s * 0.1, -s * 0.8 + bob, s * 0.06, 0, TAU); x.arc(face * s * 0.3, -s * 0.8 + bob, s * 0.06, 0, TAU); x.fill(); }
+      // the sprout on its head
+      const [gh, gs, gl] = seasonRGB(Math.max(0.6, S.season));
+      x.strokeStyle = 'rgba(70,90,40,0.95)'; x.lineWidth = s * 0.07;
+      x.beginPath(); x.moveTo(0, -s * 1.18 + bob); x.quadraticCurveTo(s * 0.05, -s * 1.4 + bob, 0, -s * 1.5 + bob); x.stroke();
+      x.fillStyle = hsl(gh, gs, gl);
+      x.beginPath(); x.ellipse(-s * 0.16, -s * 1.5 + bob, s * 0.2, s * 0.09, -0.5 + (o.sway || 0), 0, TAU); x.fill();
+      x.beginPath(); x.ellipse(s * 0.16, -s * 1.52 + bob, s * 0.2, s * 0.09, 0.5 + (o.sway || 0), 0, TAU); x.fill();
+      if (o.carry) {        // a drop of water, carried up from the roots
+        x.fillStyle = 'rgba(110,170,215,0.95)'; x.strokeStyle = 'rgba(40,80,120,0.9)'; x.lineWidth = s * 0.05;
+        x.beginPath(); x.moveTo(0, -s * 2.15 + bob); x.quadraticCurveTo(s * 0.32, -s * 1.75 + bob, 0, -s * 1.62 + bob); x.quadraticCurveTo(-s * 0.32, -s * 1.75 + bob, 0, -s * 2.15 + bob); x.fill(); x.stroke();
+      }
+      if (o.book) { x.fillStyle = 'rgba(160,50,40,0.9)'; x.fillRect(face * s * 0.2, -s * 0.62 + bob, s * 0.45, s * 0.3); }
+      x.restore();
+    }
+
+    // ------------------------------------------------------------ live layer
+    function live(t) {
+      const x = ctx, U = u(), ts = t / 1000, onTwos = Math.floor(t / 83);
+      const dt = Math.min(0.05, (t - lastT) / 1000 || 0); lastT = t;
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const { fl, gy, sapX, y0, cx } = Lg;
+      // fire
+      const hz = Lg.hearth, f = D.fire, fx0 = hz.x, fy0 = gy - U * 0.3;
+      const glow = x.createRadialGradient(fx0, fy0 - U * 3, 2, fx0, fy0 - U * 3, U * (8 + 26 * f));
+      glow.addColorStop(0, `rgba(255,170,70,${0.25 + 0.3 * f})`); glow.addColorStop(1, 'rgba(255,170,70,0)');
+      x.save(); x.beginPath(); Lg.open.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); x.clip();
+      x.globalCompositeOperation = 'screen'; x.fillStyle = glow; x.fillRect(0, 0, W, H); x.globalCompositeOperation = 'source-over';
+      const nfl = 3 + Math.round(f * 4);
+      for (let i = 0; i < nfl; i++) {
+        const k = (i - (nfl - 1) / 2) / nfl, hgt = U * (1.4 + 6 * f) * (0.7 + 0.3 * Math.sin(ts * 7 + i * 2.3) + 0.15 * Math.sin(ts * 13 + i)), w = U * (1 + 1.4 * f) * (1 - Math.abs(k));
+        const bx = fx0 + k * hz.w * 0.55;
+        x.fillStyle = i % 2 ? 'rgba(255,200,80,0.9)' : 'rgba(240,110,40,0.85)';
+        x.beginPath(); x.moveTo(bx - w, fy0); x.quadraticCurveTo(bx - w * 0.8, fy0 - hgt * 0.6, bx + Math.sin(ts * 5 + i) * w * 0.5, fy0 - hgt);
+        x.quadraticCurveTo(bx + w * 0.8, fy0 - hgt * 0.6, bx + w, fy0); x.closePath(); x.fill();
+      }
+      x.fillStyle = 'rgba(90,40,20,0.9)'; for (let i = -2; i <= 2; i++) { x.beginPath(); x.ellipse(fx0 + i * U * 1.4, fy0, U * 1.2, U * 0.4, 0, 0, TAU); x.fill(); }
+      if (D.asleep) for (let i = 0; i < 3; i++) {      // smoke curling from the embers
+        const yy = fy0 - ((ts * 14 + i * 20) % 60) / 60 * hz.h * 1.3;
+        x.strokeStyle = `rgba(120,110,100,${0.4 * (1 - (fy0 - yy) / (hz.h * 1.3))})`; x.lineWidth = 1.2;
+        x.beginPath(); x.arc(fx0 + Math.sin(ts * 2 + i) * U * 1.5, yy, U * 0.8, 0, Math.PI * 1.4); x.stroke();
+      }
+      // lanterns in the loft: the latest runs
+      const lx0 = sapX + U * 4, lx1 = Lg.ladderX - U * 4, n = Math.max(D.fruits.length, D.asleep ? 3 : 0);
+      for (let i = 0; i < n; i++) {
+        const fr = D.fruits[i], lx = n === 1 ? (lx0 + lx1) / 2 : lerp(lx0, lx1, i / Math.max(1, n - 1)), ceil = y0 + (fl.loft - y0) * 0.12 + Lg.span * 0.06 * Math.pow(Math.abs(i / Math.max(1, n - 1) - 0.5) * 2, 2);
+        const len = (fl.loft - ceil) * (0.35 + (i % 2) * 0.18), sw = Math.sin(ts * 1.3 + i * 1.7) * 0.07;
+        const ex = lx + Math.sin(sw) * len, ey = ceil + Math.cos(sw) * len;
+        x.strokeStyle = 'rgba(60,45,30,0.85)'; x.lineWidth = 0.8; x.beginPath(); x.moveTo(lx, ceil); x.lineTo(ex, ey); x.stroke();
+        const col = fr ? KIND[fr.kind] : [40, 10, 60];
+        const lit = fr && !D.asleep ? 1 - fr.ripe * 0.35 : 0;
+        if (lit) {
+          const g = x.createRadialGradient(ex, ey + U * 1.6, 0, ex, ey + U * 1.6, U * 7);
+          g.addColorStop(0, hsl(col[0], col[1], 70, 0.55 * lit)); g.addColorStop(1, hsl(col[0], col[1], 70, 0));
+          x.globalCompositeOperation = 'screen'; x.fillStyle = g; x.beginPath(); x.arc(ex, ey + U * 1.6, U * 7, 0, TAU); x.fill(); x.globalCompositeOperation = 'source-over';
+        }
+        x.fillStyle = lit ? hsl(col[0], col[1], lerp(55, 72, lit)) : 'rgba(200,190,170,0.5)'; x.strokeStyle = 'rgba(60,40,25,0.9)'; x.lineWidth = 0.9;
+        x.beginPath(); x.moveTo(ex - U * 1.1, ey + U * 0.5); x.lineTo(ex + U * 1.1, ey + U * 0.5); x.lineTo(ex + U * 1.4, ey + U * 2.6); x.lineTo(ex - U * 1.4, ey + U * 2.6); x.closePath(); x.fill(); x.stroke();
+        x.beginPath(); x.moveTo(ex - U * 0.6, ey); x.lineTo(ex + U * 0.6, ey); x.lineTo(ex + U * 1.1, ey + U * 0.5); x.lineTo(ex - U * 1.1, ey + U * 0.5); x.closePath(); x.fillStyle = 'rgba(70,50,30,0.9)'; x.fill();
+        if (fr) fr._lx = ex, fr._ly = ey + U * 1.5;
+      }
+      // sap drops rising: one for each run in the last 10 days
+      D.drops.forEach((d, i) => {
+        const span = (Lg.y1 - Lg.ty), y = Lg.y1 - H * 0.02 - ((ts * 0.09 + d.ph + i * 0.13) % 1) * span;
+        const r = U * (0.45 + 0.18 * Math.sqrt(d.km));
+        x.fillStyle = 'rgba(120,180,225,0.95)'; x.strokeStyle = 'rgba(40,90,130,0.8)'; x.lineWidth = 0.6;
+        x.beginPath(); x.arc(sapX, y, r, 0, TAU); x.fill(); x.stroke();
+        x.fillStyle = 'rgba(255,255,255,0.8)'; x.fillRect(sapX - r * 0.4, y - r * 0.5, r * 0.35, r * 0.35);
+      });
+      // dust in the warm light
+      if (!D.asleep) for (let i = 0; i < 14; i++) {
+        const px = cx + Math.sin(ts * 0.3 + i * 2.1) * Lg.inner(fl.lib) * 0.7, py = fl.loft + ((ts * 6 + i * 37) % ((gy - fl.loft) * 0.9));
+        x.fillStyle = `rgba(255,230,180,${0.25 + 0.25 * Math.sin(ts * 2 + i)})`; x.fillRect(px, py, 1.4, 1.4);
+      }
+      x.restore();
+      // mushroom lamps glow in the burrows (brighter on busy days)
+      Lg.roots.forEach((R, i) => {
+        const [bx, by] = R.burrow, a = (0.25 + 0.5 * Math.sqrt(R.rt.share)) * (0.75 + 0.25 * Math.sin(ts * 1.7 + i));
+        if (!R.rt.runs) return;
+        const g = x.createRadialGradient(bx, by, 0, bx, by, R.br * 2.2);
+        g.addColorStop(0, `rgba(255,220,140,${a})`); g.addColorStop(1, 'rgba(255,220,140,0)');
+        x.fillStyle = g; x.beginPath(); x.arc(bx, by, R.br * 2.2, 0, TAU); x.fill();
+        x.fillStyle = 'rgba(230,120,80,0.95)'; x.beginPath(); x.ellipse(bx, by - U * 0.3, U * 0.9, U * 0.5, 0, Math.PI, 0); x.fill();
+        x.fillStyle = 'rgba(240,230,210,0.95)'; x.fillRect(bx - U * 0.2, by - U * 0.3, U * 0.4, U * 0.8);
+      });
+      // the inhabitants
+      const s = U * 2.4;
+      agents.forEach((a, i) => {
+        if (a.role === 'carry' || a.role === 'keep') {
+          a.s += a.dir * a.speed * dt;
+          if (a.s >= a.total) { a.s = a.total; a.dir = -1; } else if (a.s <= 0) { a.s = 0; a.dir = 1; }
+          const p = along(a);
+          sprout(x, p.x, p.y, s, { step: onTwos % 2, climb: p.climb, carry: a.role === 'carry' && a.dir > 0, face: (p.dx * a.dir >= 0) ? 1 : -1, bob: (onTwos % 2) * -s * 0.04, sway: Math.sin(ts * 3 + i) * 0.2 });
+        } else if (a.role === 'sit') {
+          sprout(x, a.x, a.y, s, { sit: true, face: -1, bob: Math.sin(ts * 1.5 + a.ph) * s * 0.03, blink: Math.sin(ts * 0.7 + a.ph) > 0.97, sway: Math.sin(ts + a.ph) * 0.2 });
+        } else if (a.role === 'read') {
+          sprout(x, a.x, a.y, s, { sit: true, book: true, face: 1, bob: Math.sin(ts * 0.8) * s * 0.02 });
+        } else if (a.role === 'sleep') {
+          sprout(x, a.x, a.y, s * 0.95, { sleep: true, face: 1 });
+          const zz = ((ts * 0.35 + a.ph) % 1);
+          x.fillStyle = `rgba(80,60,40,${0.75 * (1 - zz)})`; x.font = `700 ${Math.round(s * (0.5 + zz * 0.5))}px Caveat, cursive`;
+          x.fillText('z', a.x + s * 0.6 + zz * s, a.y - s * 1.2 - zz * s * 2);
+        }
+      });
+      // outside: a few falling leaves or snowflakes
+      if (Math.random() < (S.winter ? 0.25 : S.season < 0.5 ? 0.12 : 0.02) && fx.length < 30) fx.push({ x: Math.random() * W, y: Lg.crown.map(0, 0)[1] * 0 + H * 0.05 + Math.random() * H * 0.2, ph: Math.random() * TAU, vy: 0.3 + Math.random() * 0.4 });
+      for (let i = fx.length - 1; i >= 0; i--) {
+        const p = fx[i]; p.y += p.vy; p.x += Math.sin(ts * 1.5 + p.ph) * 0.5;
+        if (S.winter) { x.strokeStyle = 'rgba(120,130,150,0.8)'; x.lineWidth = 0.7; for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; x.beginPath(); x.moveTo(p.x - Math.cos(a) * 2.5, p.y - Math.sin(a) * 2.5); x.lineTo(p.x + Math.cos(a) * 2.5, p.y + Math.sin(a) * 2.5); x.stroke(); } }
+        else { const [h, sa, l] = seasonRGB(0.15 + (p.ph % 0.3)); x.strokeStyle = hsl(h, sa, l, 0.85); x.lineWidth = 2; x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(p.x + Math.cos(ts * 2 + p.ph) * 4, p.y + Math.sin(ts * 2 + p.ph) * 2); x.stroke(); }
+        if (p.y > Lg.gy) fx.splice(i, 1);
+      }
+    }
+
+    const inRect = (px, py, r) => px >= r[0] && px <= r[0] + r[2] && py >= r[1] && py <= r[1] + r[3];
+    function inPoly(px, py, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; }
+
+    return {
+      about: [
+        ['A world inside the tree', 'The trunk is cut open. Each ring in the cut is a week you ran; dark rings are weeks you missed. Roots are weekday tunnels, each ending in a burrow lit by a mushroom lamp.'],
+        ['Rooms that keep score', 'Lanterns in the loft are your latest runs. The library holds a book per milestone. The hearth burns for your weekly streak, and the larder keeps a jar for every month, filled by its kilometres.'],
+        ['The sprouts', 'Little seed-folk live inside: about one for every two runs in the last four weeks, carrying water up from the roots. Stop running for a week and they fall asleep by the embers.'],
+      ],
+      enter() { build(); },
+      setT() { build(); },
+      resize() { build(); },
+      frame(t) {
+        if (!frames.length) return;
+        if (t - lastBoil > (calm ? 1e9 : 166) || lastBoil === 0) { fi = (fi + 1) % frames.length; lastBoil = t || 1; }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(frames[fi], 0, 0);
+        live(calm ? 0 : t);
+      },
+      move(px, py) {
+        let h = null;
+        for (let i = hits.length - 1; i >= 0 && !h; i--) {
+          const k = hits[i];
+          if (k.r != null && Math.hypot(px - k.x, py - k.y) < k.r) h = k;
+          else if (k.rect && inRect(px, py, k.rect)) h = k;
+          else if (k.poly && inPoly(px, py, k.poly) && !inPoly(px, py, Lg.open)) h = k;
+        }
+        if (!h) {
+          D.fruits.forEach((fr) => { if (!h && fr._lx != null && Math.hypot(px - fr._lx, py - fr._ly) < u() * 2.5) h = { text: `Lantern — ${KIND_NAME[fr.kind]}, ${fr.run.km.toFixed(1)} km on ${fmtDate(fr.run.day, { year: undefined })}` }; });
+        }
+        if (h) { tip.textContent = h.text; tip.style.left = clamp(px, 110, W - 110) + 'px'; tip.style.top = Math.max(40, py) + 'px'; tip.classList.add('on'); }
+        else tip.classList.remove('on');
+      },
+    };
+  }
+
   function roundRect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
 
   // ============================================================== shell
-  const worlds = { jar: Jar(), planet: Planet(), journal: Journal() };
+  const worlds = { inside: Inside(), jar: Jar(), planet: Planet(), journal: Journal() };
   function size() {
     const r = stage.getBoundingClientRect();
     W = Math.round(r.width); H = Math.round(r.height);
@@ -632,18 +1248,18 @@
     if (current) current.resize();
   }
   function show(k) {
-    if (!worlds[k]) k = 'jar';
+    if (!worlds[k]) k = 'inside';
     key = k; current = worlds[k];
     document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.w === k)));
     $('about').innerHTML = current.about.map(([t, d]) => `<div><b>${t}</b><span>${d}</span></div>`).join('');
-    stage.style.background = k === 'journal' ? '#2b2320' : k === 'planet' ? '#070a18' : '#2a2320';
+    stage.style.background = k === 'journal' ? '#2b2320' : k === 'inside' ? '#efe4c8' : k === 'planet' ? '#070a18' : '#2a2320';
     tip.classList.remove('on');
     if (W) { current.enter(); if (k === 'jar') setTimeout(() => current.shakeOnce && current.shakeOnce(), 200); }
   }
   document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { if (location.hash !== '#' + b.dataset.w) location.hash = b.dataset.w; else show(b.dataset.w); }));
   window.addEventListener('hashchange', () => show(location.hash.slice(1)));
   new ResizeObserver(() => { const had = W; size(); if (!had && current) { current.enter(); if (key === 'jar') current.shakeOnce(); } }).observe(stage);
-  show(location.hash.slice(1) || 'jar');
+  show(location.hash.slice(1) || 'inside');
 
   const pos = (e) => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   stage.addEventListener('pointerdown', (e) => { stage.setPointerCapture(e.pointerId); current.down && current.down(...pos(e)); hint.style.opacity = 0; });

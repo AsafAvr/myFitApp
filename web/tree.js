@@ -122,8 +122,8 @@
     const runsSoFar = M.runs.filter((r) => r.wk === wk && r.day <= T).length;
     const W = M.weeks[wk] || { streak: 0 };
     const streak = runsSoFar > 0 ? W.streak : wk > 0 ? M.weeks[wk - 1].streak : 0;
-    const di = clamp(Math.floor(T), 0, (M.g.days && M.g.days.season.length - 1) || 0);
-    const days = M.g.days || { season: [0.8], heat: [0], ratio: [1] };
+    const days = M.g.days && M.g.days.season && M.g.days.season.length ? M.g.days : { season: [0.8], heat: [0], ratio: [0] };
+    const di = clamp(Math.floor(T), 0, days.season.length - 1);
     let last = -1e9; for (const r of M.runs) { if (r.day <= T) last = r.day; else break; }
     let active = 0; for (let i = 0; i < wk; i++) if (M.weeks[i].runs) active++;
     if (runsSoFar) active++;
