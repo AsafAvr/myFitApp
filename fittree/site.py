@@ -45,6 +45,18 @@ def render_worlds(genome: dict) -> str:
             .replace("/*__WORLDSJS__*/", (WEB / "worlds.js").read_text(encoding="utf-8")))
 
 
+def render_world(genome: dict) -> str:
+    """The valley: every habit as a place in a hand-drawn world."""
+    tpl = (WEB / "world.html").read_text(encoding="utf-8")
+    name = genome["athlete"].get("first_name") or genome["athlete"].get("name") or "Runner"
+    return (tpl
+            .replace("__TITLE__", html.escape(f"{name}'s valley"))
+            .replace("__DESCRIPTION__", html.escape(f"{name}'s habits as places in a hand-drawn valley that grows."))
+            .replace("/*__GENOME__*/null", _js_json(genome))
+            .replace("/*__TREEJS__*/", (WEB / "tree.js").read_text(encoding="utf-8"))
+            .replace("/*__WORLDJS__*/", (WEB / "world.js").read_text(encoding="utf-8")))
+
+
 def write_page(genome: dict, story: dict, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     p = out_dir / "index.html"
@@ -52,6 +64,7 @@ def write_page(genome: dict, story: dict, out_dir: Path) -> Path:
     (out_dir / "genome.json").write_text(json.dumps(genome, ensure_ascii=False, indent=1), encoding="utf-8")
     (out_dir / "story.json").write_text(json.dumps(story, ensure_ascii=False, indent=1), encoding="utf-8")
     (out_dir / "worlds.html").write_text(render_worlds(genome), encoding="utf-8")
+    (out_dir / "world.html").write_text(render_world(genome), encoding="utf-8")
     return p
 
 

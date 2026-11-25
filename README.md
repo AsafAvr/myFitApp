@@ -51,6 +51,23 @@ drag the slider or press **Watch it grow** for the time-lapse. Every element is
 seeded by what it represents (athlete + run id), so the tree is perfectly
 stable and scrubbing to any past date regrows exactly the tree you had then.
 
+## The valley (prototype): a world of habits
+
+`site/<key>/world.html` turns every habit into a place on a hand-drawn floating
+island. Running is the great tree in the middle; walking is a footpath,
+cycling a windmill, swimming a pond, strength a stone tower, yoga a garden,
+reading a library, meditation a cairn, and any habit you add (a well, …) gets
+its own plot.
+
+- Each place grows through **seven stages** from that habit's own persistence
+  (the same weekly "wood" as the tree's trunk), against its own weekly target.
+- A place you neglect for three weeks **fades and gets overgrown**; the sails
+  stop, the pond goes still, the chimney goes cold.
+- **Trails wear in between habits you keep on the same days**, and the little
+  seed-folk walking them are this week's check-ins.
+- Sports come from Strava / Google Health; other habits are logged in the page
+  (prototype: kept in the browser). The time slider replays the whole valley.
+
 ## Little worlds (prototypes)
 
 `site/<key>/worlds.html` grows the same tree into four self-contained worlds,

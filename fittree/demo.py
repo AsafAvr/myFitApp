@@ -66,13 +66,26 @@ def synth(kind: str = "seasoned", as_of: dt.date | None = None, seed: int = 7) -
                 prs=rnd.choice([0, 0, 0, 0, 1, 2]) if kindr in ("race", "tempo", "long") else 0,
                 achievements=rnd.choice([0, 0, 1]),
             ))
-        if rnd.random() < 0.35:
-            aid += 1
-            sport = rnd.choice(["Ride", "Walk", "Swim", "Workout", "Hike", "Yoga"])
-            day = d + dt.timedelta(days=rnd.randint(0, 6))
-            if day <= today:
-                acts.append(Activity(id=aid, name=sport, start=dt.datetime.combine(day, dt.time(17, 0)),
-                                     sport=sport, distance_km=0, moving_s=rnd.randint(1800, 5400)))
+        # other habits, each with its own rhythm (and lapses), for the valley
+        total_weeks = (today - start).days // 7 + 1
+        frac = week / max(1, total_weeks)
+        plan = [("Walk", 2, 0.7, frac > 0.1),
+                ("Yoga", 1, 0.75, frac > 0.55 if kind == "seasoned" else True),
+                ("Ride", 1, 0.8, 0.2 < frac < 0.6 or frac > 0.9) if kind == "seasoned" else ("Ride", 0, 0, False),
+                ("Swim", 1, 0.65, d.month in (6, 7, 8, 9)) if kind == "seasoned" else ("Swim", 0, 0, False),
+                ("WeightTraining", 2, 0.6, frac > 0.35 and not (0.7 < frac < 0.78)) if kind == "seasoned" else ("WeightTraining", 0, 0, False)]
+        for sport, per_week, p, on in plan:
+            if not on:
+                continue
+            for _ in range(per_week):
+                if rnd.random() > p:
+                    continue
+                day = d + dt.timedelta(days=rnd.randint(0, 6))
+                if day > today:
+                    continue
+                aid += 1
+                acts.append(Activity(id=aid, name=sport, start=dt.datetime.combine(day, dt.time(17, rnd.randint(0, 59))),
+                                     sport=sport, distance_km=0, moving_s=rnd.randint(1800, 4800)))
         d = week_end
         week += 1
     return acts
