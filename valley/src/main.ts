@@ -20,7 +20,7 @@ import { startPadNav } from './ui/padnav';
 import type { Session } from './ui/screens';
 import { FACE } from './game/systems/faces';
 
-import { loadHabits } from './habits/habits';
+import { loadHabits } from './game/state/habits';
 
 const canvas = document.getElementById('view') as HTMLCanvasElement;
 await loadHabits();

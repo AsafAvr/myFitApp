@@ -1,6 +1,6 @@
 import { WORLD } from '../config.js';
 import { hash01 } from '../core/rng.js';
-import { valley } from './valley.js';
+import { valleyPlaceAt, valleyRecipe, valleySiteName, fitCells } from './valley.js';
 
 const L = WORLD.ROAD_L;
 const kinds = new Map();
@@ -36,6 +36,7 @@ export function createSites(seed, naturalHeight, biomeIdAt) {
     const biome = biomeIdAt(x, z, natural);
     let kind = null;
     if (i === 0 && j === 0) kind = 'town';
+    else if (valleyPlaceAt(i, j)) kind = 'habit';
     else if (marketAt(i, j)) kind = 'market';
     else if (hash01(i, j, seed + 501) < 0.82) {
       const pool = [...kinds].filter(([id, k]) => id !== 'town' && id !== 'market' && (!k.suits || k.suits.includes(biome)));
@@ -94,30 +95,27 @@ const townsfolk = (x, z, names) => [
   { id: 'stash', name: names[3], role: 'stash', x: x + 1.6, z: z - 10.6 },
 ];
 
-registerSiteKind('town', ({ x, z }) => {
-  if (!valley.ready) {
-    return {
-      name: 'Hearthmere', r: 26, fade: 22, h: 3.0, plaza: 13.5, clear: 27, safe: 30, waystone: true, town: true,
-      structures: townLayout(x, z, 0),
-      npcs: townsfolk(x, z, ['Odette', 'Bram', 'Tamsin', 'Pell']),
-    };
-  }
-  return { name: valley.name, r: 30, fade: 22, h: 3.0, plaza: 6.5, clear: 31, safe: 34, waystone: true, town: true, ...valleyLayout(x, z) };
-});
+registerSiteKind('town', ({ x, z }) => ({
+  name: 'Hearthmere', r: 26, fade: 22, h: 3.0, plaza: 13.5, clear: 27, safe: 30, waystone: true, town: true,
+  structures: townLayout(x, z, 0),
+  npcs: townsfolk(x, z, ['Odette', 'Bram', 'Tamsin', 'Pell']),
+}));
 
-function valleyLayout(x, z) {
-  const structures = [{ id: 'greattree', x, z, rot: 0, seed: 0.5 }];
-  structures.push({ id: 'waystone', x: x - 7.5, z: z + 9.5, rot: 0.3 });
-  structures.push({ id: 'chest', x: x + 8.5, z: z + 10, rot: 0.4 });
-  for (const [dx, dz] of [[-9.5, -9.5], [9.5, -9.5]]) structures.push({ id: 'lamp', x: x + dx, z: z + dz, rot: 0 });
-  const npcs = [];
-  for (const p of valley.places) {
-    for (const s of p.structures) structures.push({ id: s.id, x: x + s.dx, z: z + s.dz, rot: s.rot ?? faceToward(x + s.dx, z + s.dz, x, z), scale: s.scale, seed: s.seed });
-    npcs.push({ id: 'keeper-' + p.habit, name: p.name, role: 'keeper', habit: p.habit, title: p.title, x: x + p.dx, z: z + p.dz });
-  }
-  npcs.push(...townsfolk(x, z, ['Odette', 'Bram', 'Tamsin', 'Pell']).map((n) => ({ ...n, x: x + (n.x - x) * 2.35, z: z + (n.z - z) * 2.35 })));
-  return { structures, npcs };
-}
+registerSiteKind('habit', (c) => {
+  const place = valleyPlaceAt(c.i, c.j);
+  const { x, z } = c;
+  const big = place.kind === 'tree';
+  const structures = fitCells([
+    { id: 'waystone', x, z, rot: c.rand(1) * 6.28 },
+    ...valleyRecipe(place).map((s) => ({ ...s, x: x + s.x, z: z + s.z, rot: s.rot ?? faceToward(x + s.x, z + s.z, x, z) })),
+    { id: 'signpost', x: x + 2, z: z + 6, rot: c.rand(2) * 6.28 },
+  ]);
+  return {
+    name: valleySiteName(place.kind, c.name), r: big ? 20 : 16, fade: 10, h: Math.min(14, Math.max(1.8, c.natural)), plaza: 4.6, ground: 'dirt',
+    clear: big ? 22 : 17.5, safe: place.neglected ? 0 : big ? 24 : 19, waystone: true, den: place.neglected, structures,
+    npcs: [{ id: `keeper-${place.habit}`, name: place.label, role: 'keeper', habit: place.habit, title: place.title, x: x - 2.6, z: z + 3.4 }],
+  };
+}, 0, []);
 
 const FIRST = ['Agnes', 'Wat', 'Hild', 'Osric', 'Maud', 'Edda', 'Rolf', 'Ysolde', 'Gil', 'Bertha', 'Cuthbert', 'Lise', 'Aldo', 'Nell', 'Piers', 'Ines'];
 registerSiteKind('market', (c) => {

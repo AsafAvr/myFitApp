@@ -132,7 +132,7 @@ export class Renderer {
     p.set('uNight', e.night).set('uGold', e.gold).set('uCloud', e.cloud).set('uWind', e.wind);
     p.set('uRockCol', e.rockCol).set('uLeafPal', this.leafPal);
     const gt = GREAT_TREE;
-    p.set('uGTB', gt.bound).set('uGTLa', gt.la).set('uGTLb', gt.lb).set('uGTF', gt.f).set('uGTNL', gt.nl).set('uGTNF', gt.nf).set('uGTLeaf', gt.leaf);
+    p.set('uGTB', gt.bound).set('uGTLa', gt.la).set('uGTLb', gt.lb).set('uGTF', gt.f).set('uGTNL', gt.nl).set('uGTNF', gt.nf).set('uGTM', gt.form);
     p.set('uLightPos', f.lightPos).set('uLightCol', f.lightCol).set('uLightCount', f.lightCount);
     p.set('uPencil', this.pencil).set('uPaperAnchor', this.paperAnchor);
     const pa = this.paper.a, pb = this.paper.b || this.paper.a;

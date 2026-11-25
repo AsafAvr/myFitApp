@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ui, closePanel } from './store';
-import { state, STAGES, stageFloor, toggleToday, type Habit } from '../habits/habits';
-import { FT } from '../habits/fittree';
-import { drawTree, type TreeDrawing } from '../habits/treeart';
+import { habits, toggleToday } from '../game/state/habits';
+import { STAGES } from '../game/content/habits';
+import { stageFloor, type Habit } from '../game/rules/habits';
+import { FT } from '../world/runtree';
+import { drawTree, type TreeDrawing } from './treeart';
 
 const SEASON = (s: number, heat: number, dormant: number) => (dormant >= 21 || s < 0.08 ? 'winter' : s < 0.3 ? 'late autumn' : s < 0.5 ? 'autumn' : s < 0.68 ? 'late summer' : heat > 0.45 ? 'a heatwave' : s > 0.9 ? 'a spring flush' : 'summer');
-const fmt = (T: number) => (state.model ? new Date(state.model.origin + Math.floor(T) * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '');
+const fmt = (T: number) => (habits.model ? new Date(habits.model.origin + Math.floor(T) * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '');
 
 function Spark({ spark }: { spark: number[] }) {
   const mx = Math.max(1, ...spark);
@@ -17,7 +19,7 @@ function Spark({ spark }: { spark: number[] }) {
 }
 
 function TreeView() {
-  const M = state.model!;
+  const M = habits.model!;
   const [T, setT] = useState(M.today);
   const cv = useRef<HTMLCanvasElement>(null), wrap = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -32,7 +34,7 @@ function TreeView() {
     let i = 0;
     const show = () => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(drawing.current!.frames[i % drawing.current!.frames.length], 0, 0); i++; };
     show();
-    const steady = state.genome && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const steady = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const id = steady ? 0 : window.setInterval(show, 166);
     return () => window.clearInterval(id);
   }, [S]);
@@ -79,28 +81,28 @@ function PlaceView({ h }: { h: Habit }) {
   const prog = m.stage >= 6 ? 1 : Math.max(0, Math.min(1, (m.wood - stageFloor(m.stage)) / (m.next - stageFloor(m.stage))));
   return (
     <div class="place-view">
-      <p class="place-stage">{k.place}: <b>{k.stages[m.stage]}</b> <span class="dim">(stage {m.stage} of 6)</span></p>
+      <p class="place-stage">{h.name}: <b>{k[m.stage]}</b> <span class="dim">(stage {m.stage} of 6)</span></p>
       <div class="place-bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(prog * 100)} aria-label="Progress to the next stage"><i style={{ width: `${prog * 100}%` }} /></div>
-      <p>{!m.total ? 'Not started yet. The first check-in plants it.' : m.neglected ? `Overgrown: ${m.dormant} days since the last time. Come back to it and it clears.` : `${m.streak}-week streak · ${m.thisWeek} of ${h.target} this week · ${m.total} in all.`}</p>
+      <p>{!m.total ? 'Not started yet. The first check-in plants it.' : m.neglected ? `Overgrown: ${m.dormant} days since the last time, and an elder has made its den here. Come back to the habit and the place clears.` : `${m.streak}-week streak · ${m.thisWeek} of ${h.target} this week · ${m.total} in all.`}</p>
       <Spark spark={m.spark} />
-      <p class="dim">Each week you keep it adds to its growth, more for a streak, toward a weekly target of {h.target}. Places never shrink; neglected ones fade and get overgrown.</p>
+      <p class="dim">Each week you keep it adds to its growth, more for a streak, toward a weekly target of {h.target}. Places never shrink. Leave one for three weeks and it gets overgrown, and creatures gather there.</p>
       {h.src === 'manual' && (
         <button type="button" class="btn" aria-pressed={m.today} onClick={() => { toggleToday(h.key); bump((x) => x + 1); }}>{m.today ? 'Done today ✓' : 'Log today'}</button>
       )}
-      {h.src === 'manual' && <p class="dim">{h.example && !state.store.off[h.key] ? 'Starts with example check-ins. ' : ''}Check-ins are kept in this browser; the place regrows next time the valley loads.</p>}
+      {h.src === 'manual' && <p class="dim">{h.example && !habits.log.off[h.key] ? 'Starts with example check-ins. ' : ''}Check-ins are kept in this browser; the place regrows next time the valley loads.</p>}
     </div>
   );
 }
 
 export function HabitPanel() {
   const key = ui.habit.value;
-  const h = state.habits.find((x) => x.key === key);
-  const title = h ? `${h.name} · ${STAGES[h.kind].stages[h.m.stage]}` : 'A place in the valley';
+  const h = habits.list.find((x) => x.key === key);
+  const title = h ? `${h.name} · ${STAGES[h.kind][h.m.stage]}` : 'A place in the valley';
   return (
     <section class="overlay plate habit-panel" role="dialog" aria-label={title}>
       <header><h2>{title}</h2><div class="head-actions"><button type="button" class="x" aria-label="Close" onClick={() => closePanel('habit')}>×</button></div></header>
       <div class="body">
-        {!state.model ? <p>No habit data was found, so the valley is still a seed.</p> : h?.kind === 'tree' ? <TreeView /> : h ? <PlaceView h={h} /> : null}
+        {!habits.model ? <p>No habit data was found, so the valley is still a seed.</p> : h?.kind === 'tree' ? <TreeView /> : h ? <PlaceView h={h} /> : null}
       </div>
     </section>
   );

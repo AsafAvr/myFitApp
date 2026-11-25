@@ -895,44 +895,43 @@ void mat_torch(vec3 q, float mat, Prop pr, inout Surf s) {
 });
 
 registerProp({
-  id: 'greattree', seeThrough: true, reach: 6.6, height: 14, collide: 0.7, map: [0.25, 0.5, 0.22],
+  id: 'greattree', seeThrough: true, reach: 6.65, height: 14, collide: 0.75, map: [0.25, 0.45, 0.22],
   glsl: glsl`
 uniform vec4 uGTB;
-uniform vec4 uGTLa[24];
-uniform vec4 uGTLb[24];
+uniform vec4 uGTM;
+uniform vec4 uGTLa[12];
+uniform vec4 uGTLb[12];
 uniform vec4 uGTF[16];
 uniform int uGTNL;
 uniform int uGTNF;
-uniform vec4 uGTLeaf;
 float sdf_greattree(vec3 q, Prop pr, out float mat) {
-  mat = 0.0;
-  float r = length(q.xz);
-  float bound = max(r - uGTB.x, max(q.y - uGTB.y, -q.y - 0.8));
-  if (bound > 0.8) return bound;
-  q.xz += 0.03 * sin(uTime * 1.1 + q.y * 0.4) * max(q.y - uGTB.z * 0.6, 0.0) * vec2(0.8, 0.5);
-  float wood = sdTaper(q, vec3(0.0, -0.3, 0.0), vec3(0.0, uGTB.z, 0.0), uGTB.w, uGTB.w * 0.5);
-  wood = smin(wood, sdTaper(q, vec3(0.0, -0.4, 0.0), vec3(0.0, uGTB.z * 0.22, 0.0), uGTB.w * 1.75, uGTB.w * 0.95), 0.35);
-  for (int i = 0; i < 24; i++) {
+  float sc = uGTM.z;
+  q.xz += 0.035 * sin(uTime * 1.2 + pr.seed * 30.0) * max(q.y - uGTB.z * 0.55, 0.0) / sc * vec2(0.8, 0.5);
+  float wood = sdTaper(q, vec3(0.0), vec3(0.06, uGTB.z, 0.02) * vec3(sc, 1.0, sc), uGTB.w, uGTB.w * 0.5);
+  wood = smin(wood, sdTaper(q, vec3(0.0, -0.2, 0.0), vec3(0.0, uGTB.z * 0.18, 0.0), uGTB.w * 1.55, uGTB.w), 0.12 * sc);
+  float bound = max(length(q.xz) - uGTB.x, q.y - uGTB.y);
+  if (bound > 0.7) { mat = 0.0; return min(wood, bound); }
+  for (int i = 0; i < 12; i++) {
     if (i >= uGTNL) break;
-    wood = smin(wood, sdTaper(q, uGTLa[i].xyz, uGTLb[i].xyz, uGTLa[i].w, uGTLb[i].w), 0.14);
+    wood = smin(wood, sdTaper(q, uGTLa[i].xyz, uGTLb[i].xyz, uGTLa[i].w, uGTLb[i].w), 0.05 * sc);
   }
   float can = 1e3;
   for (int i = 0; i < 16; i++) {
     if (i >= uGTNF) break;
-    can = smin(can, length(q - uGTF[i].xyz) - uGTF[i].w, 0.6);
+    can = smin(can, length(q - uGTF[i].xyz) - uGTF[i].w, uGTM.y);
   }
-  can += 0.1 * sin(q.x * 2.9 + 1.3) * sin(q.y * 3.2) * sin(q.z * 3.1 + 0.7);
-  can += 0.04 * sin(q.x * 7.3 + 2.0) * sin(q.y * 6.9) * sin(q.z * 7.7);
+  vec3 n = q / sc;
+  can += sc * 0.06 * sin(n.x * 4.7 + pr.seed * 17.0) * sin(n.y * 5.1) * sin(n.z * 4.9 + 1.3);
+  can += sc * 0.022 * sin(n.x * 10.3 + 2.0) * sin(n.y * 9.1 + pr.seed * 9.0) * sin(n.z * 9.7);
   mat = wood < can ? 0.0 : 1.0;
-  return min(wood, can) * 0.72;
+  return min(wood, can) * 0.7;
 }
 void mat_greattree(vec3 q, float mat, Prop pr, inout Surf s) {
   if (mat < 0.5) { barkSurf(q, pr, s); return; }
-  leafSurf(q, pr, s, uGTB.z * 0.55, uGTB.y);
-  float clump = vnoise3(q * 1.9 + 3.0);
-  s.albedo = mix(uGTLeaf.rgb, mix(uGTLeaf.rgb, P_BUTTER, 0.4), smoothstep(0.56, 0.68, clump) * 0.55);
-  vec2 v = voronoi(q.xy * 1.5 + q.z * 1.2 + 7.0);
-  float fruit = smoothstep(0.13, 0.08, v.x) * step(1.0 - uGTLeaf.a, v.y);
+  leafSurf(q, pr, s, uGTB.z * 0.9, uGTB.y);
+  vec3 n = q / uGTM.z;
+  vec2 v = voronoi(n.xy * 2.6 + n.z * 1.9 + pr.seed * 20.0);
+  float fruit = smoothstep(0.13, 0.09, v.x) * step(1.0 - uGTM.x, v.y);
   s.albedo = mix(s.albedo, P_POPPY, fruit);
   s.cover = mix(s.cover, 0.95, fruit);
 }`,

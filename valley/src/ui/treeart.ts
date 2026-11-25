@@ -1,5 +1,5 @@
-import { penRun, lay, tooth, artRng, artHash, artShade, INK, PAPER, SLANT, LIGHT } from '../ui/art';
-import { FT, type Scene, type Model, type Pt3 } from './fittree';
+import { penRun, lay, tooth, artRng, artHash, artShade, INK, PAPER, SLANT, LIGHT } from './art';
+import { FT, type Scene, type Model, type Pt3 } from '../world/runtree';
 
 interface Pt { x: number; y: number }
 export interface TreeHit { x: number; y: number; r: number; text: string }
@@ -24,7 +24,6 @@ function boxOf(pts: Pt[]) {
   for (const p of pts) { b.x0 = Math.min(b.x0, p.x); b.y0 = Math.min(b.y0, p.y); b.x1 = Math.max(b.x1, p.x); b.y1 = Math.max(b.y1, p.y); }
   return b;
 }
-// coloured pencil laid at the page's slant, a deeper pencil on the side away from the light, then the pen
 function pencilShape(ctx: CanvasRenderingContext2D, poly: Pt[], base: string, deep: string, amount: number, gap: number, lw: number, pen: number, r: Rand, outline = true): void {
   if (poly.length < 3) return;
   const box = boxOf(poly), path = new Path2D();
@@ -64,7 +63,6 @@ export function drawTree(S: Scene, M: Model, w: number, h: number, dpr: number, 
     const r = artRng(artHash(M.seed + ':tree:' + f));
     ctx.fillStyle = PAPER; ctx.fillRect(0, 0, w, h);
 
-    // ---- soil and roots: one root per weekday
     const m = S.moisture;
     ctx.save(); ctx.beginPath(); ctx.rect(0, gy, w, h - gy); ctx.clip();
     lay(ctx, { x0: 0, y0: gy, x1: w, y1: h }, unit.gap * 1.4, SLANT, 0.85, (_x, y) => (y < gy ? 0 : (0.25 + 0.45 * m) * (1 - smooth(gy, h, y) * 0.6)), m > 0.5 ? '#8a6a48' : '#c2a27c', 0.55, 1, r);
@@ -83,14 +81,12 @@ export function drawTree(S: Scene, M: Model, w: number, h: number, dpr: number, 
     S.roots.forEach((rt, i) => { ctx.globalAlpha = rt.strongest ? 1 : 0.7; ctx.fillText(rt.day + (rt.runs ? ` ${rt.runs}` : ''), w / 2 + (i - 3) / 3 * span / 2, h - 12); });
     ctx.globalAlpha = 1;
 
-    // ---- the ground line and grass, in pen
     const gl: Pt[] = []; for (let x = -4; x <= w + 4; x += 7) gl.push({ x, y: gy + Math.sin(x / 37) * 1.4 });
     penRun(ctx, gl, false, unit.pen, INK, 0.9, 0.55, r);
     const [gh, gs, gl2] = FT.geom.interpStops(FT.geom.SEASON_STOPS, Math.min(1, S.season * 0.85 + 0.12));
     const grass = S.winter ? '#a39478' : hex(gh, gs * 0.8, gl2);
     for (let x = 4; x < w; x += 4 + r() * 6) penRun(ctx, [{ x, y: gy }, { x: x + (r() - 0.5) * 4, y: gy - 3 - r() * 8 }], false, 1, grass, 0.85, 0.3, r);
 
-    // ---- trunk: hatched bark, knots where you paused, amber for milestones
     const trunk = outlineOf(S.trunk, P);
     pencilShape(ctx, trunk, BARK.base, BARK.deep, 0.65, unit.gap, unit.lw, unit.pen * 1.15, r);
     for (let i = 0; i < 10 + S.wood / 3; i++) {
@@ -117,7 +113,6 @@ export function drawTree(S: Scene, M: Model, w: number, h: number, dpr: number, 
       hits.push({ x: c.x, y: c.y, r: s + 4, text: `carved after 12 running weeks: ${S.carving.initial} · ${S.carving.year}` });
     }
 
-    // ---- limbs (months) and branches (weeks)
     S.limbs.forEach((l) => {
       pencilShape(ctx, outlineOf(l.pts, P), BARK.base, BARK.deep, 0.55, unit.gap, unit.lw, unit.pen, r);
       const mid = P(l.pts[Math.floor(l.pts.length * 0.4)].x, l.pts[Math.floor(l.pts.length * 0.4)].y);
@@ -133,7 +128,6 @@ export function drawTree(S: Scene, M: Model, w: number, h: number, dpr: number, 
       for (const fk of [...t.forks, ...t.fine]) penRun(ctx, fk.map((p) => P(p.x, p.y)), false, unit.pen * 0.4, INK, 0.6, 0.3, r);
     });
 
-    // ---- leaves: a cluster of coloured pencil per run, darker on the shaded side
     const byTwig = new Map<number, typeof S.leaves>();
     S.leaves.forEach((L) => { const list = byTwig.get(L.ti) || []; list.push(L); byTwig.set(L.ti, list); });
     byTwig.forEach((list) => {
@@ -161,7 +155,6 @@ export function drawTree(S: Scene, M: Model, w: number, h: number, dpr: number, 
     });
     S.twigs.forEach((t) => { const tip = P(t.tip.x, t.tip.y); hits.push({ x: tip.x, y: tip.y, r: 8 + Math.sqrt(t.run.km) * 1.2, text: `${t.run.name || 'Run'} · ${days(t.run.day)} · ${t.run.km.toFixed(1)} km${t.run.pace ? ` · ${Math.floor(t.run.pace / 60)}:${String(Math.round(t.run.pace % 60)).padStart(2, '0')}/km` : ''}` }); });
 
-    // ---- blossoms, fruit, nest, swing
     S.blossoms.forEach((b) => { const c = P(b.x, b.y), rad = Math.max(1.6, b.size * k * 0.45); for (let i = 0; i < 5; i++) { const a = b.rot + i * Math.PI * 0.4; pencilShape(ctx, circle(c.x + Math.cos(a) * rad, c.y + Math.sin(a) * rad, rad * 0.75, 8), '#f6c3d2', '#c8627e', 0.3, 1.1, 0.7, 0.5, r, false); } });
     S.fruits.forEach((fr) => {
       const at = P(fr.x, fr.y), rad = Math.max(3, fr.size * k * 0.8), c = { x: at.x, y: at.y + fr.stem * k + rad };
@@ -184,7 +177,6 @@ export function drawTree(S: Scene, M: Model, w: number, h: number, dpr: number, 
       hits.push({ x: t0.x, y: by, r: hw + 8, text: 'the swing: 26 weeks with a run' });
     }
 
-    // ---- hand-lettered notes with pen leaders
     const notes: { at: Pt; text: string }[] = [];
     const strong = S.roots.find((x) => x.strongest);
     if (strong) notes.push({ at: R(strong.pts[strong.pts.length - 1].x, strong.pts[strong.pts.length - 1].y), text: `${DAYS[strong.day] || strong.day}: your anchor day` });

@@ -95,6 +95,6 @@ export class SaveStore {
   }
 }
 
-function safeLocalStorage(): KeyValue | null {
+export function safeLocalStorage(): KeyValue | null {
   try { return globalThis.localStorage ?? null; } catch { return null; }
 }

@@ -55,10 +55,13 @@ stable and scrubbing to any past date regrows exactly the tree you had then.
 
 `valley/` is a fork of [Brushwild](https://github.com/kevintngo/procedural-rpg)
 (MIT), an open world drawn in pen and coloured pencil entirely by shaders.
-Its home town becomes your valley: a place per habit, sized by that habit's
-stage, a great tree in the middle whose 3D shape is grown from the runs, and a
-keeper beside each place. Talk to the tree's keeper and the full tree opens,
-drawn in Brushwild's own pencil hand with every run on it. See
+It stays as close to Brushwild as it can: Hearthmere is untouched, and each
+habit becomes a Brushwild site on the roads around it, with a waystone, a
+keeper and a place built from Brushwild's props that grows with the habit. A
+habit left for three weeks turns its site into a den. Running grows a great
+tree from Brushwild's own tree recipe, shaped by the runs; talk to its keeper
+and the full tree opens, drawn in Brushwild's pencil hand with every run on it.
+See
 [valley/README.md](valley/README.md).
 
 ```bash
