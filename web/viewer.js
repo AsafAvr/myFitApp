@@ -37,20 +37,54 @@
     W = Math.round(r.width); Hh = Math.round(r.height);
     [cv, av2].forEach((c) => { c.width = W * dpr; c.height = Hh * dpr; });
   }
+  let RR = null;               // prepared layers for the current moment
+  // the film look as CSS layers (grade, faded blacks, vignette, grain, bloom)
+  const fx = { bloom: $('fxBloom'), grade: $('fxGrade'), lift: $('fxLift'), vig: $('fxVig'), grain: $('fxGrain') };
+  try { fx.grain.style.backgroundImage = `url(${FT.noise().toDataURL('image/png')})`; } catch (e) { fx.grain.hidden = true; }
+  function film(R) {
+    const p = FT.postStyle(R);
+    fx.grade.style.background = p.grade; fx.grade.style.opacity = p.gradeAlpha;
+    fx.lift.style.background = p.lift;
+    fx.vig.style.background = `radial-gradient(ellipse 75% 70% at 50% 45%, rgba(255,255,255,0) 45%, ${p.vignette} 100%), #fff`;
+    fx.bloom.style.opacity = p.bloom * 1.3;
+    bloom();
+  }
+  function bloom() {
+    const b = fx.bloom;
+    if (b.width !== Math.max(1, W >> 3)) { b.width = Math.max(1, W >> 3); b.height = Math.max(1, Hh >> 3); }
+    const x = b.getContext('2d'); x.globalCompositeOperation = 'copy'; x.drawImage(cv, 0, 0, b.width, b.height);
+  }
   function draw() {
     if (!W) return;
     scene = FT.grow(M, T);
-    view = FT.render(ctx, scene, W, Hh, { model: M, dpr });
+    RR = FT.prepareRender(scene, W, Hh, { model: M, dpr, lite: playing, post: false });
+    FT.drawFrame(ctx, RR, performance.now());
+    film(RR);
+    view = RR.v;
     ambient = FT.Ambient(scene, view, M);
     updatePanel();
   }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());
   new ResizeObserver(() => { size(); draw(); }).observe(stage);
 
-  let last = 0;
+  let last = 0, budget = 32, slow = 0, frames = 0;
   const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // the tree breathes: wind through the crown at up to ~30 fps while visible;
+  // slower devices step down to 15 fps, and very slow ones keep a still tree
   function loop(t) {
     if (calm) return;
-    if (ambient && !document.hidden && t - last > 30) { ambient.step(actx, dpr, t); last = t; }
+    if (!document.hidden && t - last > budget) {
+      if (RR && !playing && budget < 1000) {
+        const t0 = performance.now();
+        FT.drawFrame(ctx, RR, t);
+        if (++frames % 4 === 0) bloom();
+        const dt = performance.now() - t0;
+        slow = slow * 0.9 + (dt > budget * 0.8 ? 1 : 0) * 0.1;
+        if (slow > 0.6) { budget = budget < 60 ? 66 : 5000; slow = 0; }
+      }
+      if (ambient) ambient.step(actx, dpr, t);
+      last = t;
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -60,7 +94,7 @@
   function setT(v) { T = Math.max(0, Math.min(M.today, v)); slider.value = T; draw(); }
   slider.addEventListener('input', () => { stop(); setT(+slider.value); });
   $('todayBtn').onclick = () => { stop(); setT(M.today); };
-  function stop() { playing = false; cancelAnimationFrame(raf); $('playBtn').textContent = '▶ Watch it grow'; }
+  function stop() { const was = playing; playing = false; cancelAnimationFrame(raf); $('playBtn').textContent = '▶ Watch it grow'; if (was) draw(); }
   $('playBtn').onclick = () => {
     if (playing) return stop();
     playing = true; $('playBtn').textContent = '❚❚ Pause';
@@ -105,6 +139,8 @@
       case 'limb': return `<b>${esc(d.label)} limb</b><br>${d.runs} runs · ${d.km.toFixed(1)} km<br><span style="opacity:.75">vigor ${(d.vigor * 100).toFixed(0)}%: longer & thicker when the month's habit was strong</span>`;
       case 'ring': return `<b>✨ Amber ring</b><br>${esc(d.label)}<br><span style="opacity:.75">${d.t.slice(0, 10)}</span>`;
       case 'knot': return `<b>${d.kind === 'scar' ? 'Old limb scar' : d.kind === 'bud' ? 'Dormant bud' : 'Knot'}</b><br>${esc(d.label)}${d.kind === 'scar' ? '<br><span style="opacity:.75">older than 18 months — now part of the trunk\'s strength</span>' : ''}`;
+      case 'carving': return `<b>Carved initial</b><br>${esc(d.initial)} · ${esc(d.year)}<br><span style="opacity:.75">carved after 12 weeks with a run</span>`;
+      case 'swing': return `<b>The swing</b><br><span style="opacity:.75">hangs once you've run in 26 different weeks</span>`;
       case 'nest': return `<b>🪺 ${d.streak}-week streak</b><br>${d.eggs} egg${d.eggs > 1 ? 's' : ''}${d.bird ? ' and a robin on watch' : ''}<br><span style="opacity:.75">each week in a row adds an egg</span>`;
     }
     return '';
@@ -148,6 +184,9 @@
     <div class="card part"><div class="ico">${ICON.nest}</div><h3>Nest = streak</h3>
       <div class="means">2+ weeks in a row builds a nest; each week adds an egg (up to 6). At 8 weeks a robin moves in.</div>
       <div class="val" id="nestVal"></div></div>
+    <div class="card part"><div class="ico">${ICON.amber.replace('M12 19a4 4 0 0 0 4 4', 'M13 18c0 2 1 3 3 3')}</div><h3>Soil & keepsakes</h3>
+      <div class="means">Every run waters the tree: the soil stays dark and moist for a few days, then dries and cracks and the leaves start to hang. After 12 weeks with a run your initial is carved into the bark; after 26 a swing hangs from the strongest limb.</div>
+      <div class="val" id="keepVal"></div></div>
     <div class="card part"><div class="ico">${ICON.meadow}</div><h3>Meadow = cross-training</h3>
       <div class="means">Rides, swims, walks and workouts from the last 90 days bloom as wildflowers around the tree.</div>
       <div class="val" id="meadowVal"></div></div>`;
@@ -203,6 +242,12 @@
     const longest = M.weeks.slice(0, st.wk + 1).reduce((a, w) => Math.max(a, w.streak), 0);
     $('nestVal').innerHTML = st.streak >= 2 ? `${'🥚'.repeat(Math.min(6, st.streak))}${st.streak >= 8 ? ' 🐦' : ''}<br><b>${st.streak}</b>-week streak · longest <b>${longest}</b>`
       : `<b>${st.streak}</b>-week streak · longest <b>${longest}</b><br><span class="means">Run in 2 weeks in a row to start a nest.</span>`;
+    const dsl = runsT.length ? Math.floor(st.dormant) : null;
+    const soil = dsl == null ? 'waiting for the first run' : dsl <= 2 ? `moist, watered ${dsl === 0 ? 'today' : dsl === 1 ? 'yesterday' : '2 days ago'}`
+      : dsl <= 7 ? `drying, ${dsl} days since the last run` : `dry and cracking, ${dsl} days without water`;
+    const aw = st.activeWeeks;
+    $('keepVal').innerHTML = `Soil: <b>${soil}</b><br>Carved initial: <b>${aw >= 12 ? 'yes' : `in ${12 - aw} more running week${12 - aw === 1 ? '' : 's'}`}</b>` +
+      ` · Swing: <b>${scene.swing ? 'hanging' : aw >= 26 ? 'waiting for a limb long enough' : `in ${26 - aw} more running week${26 - aw === 1 ? '' : 's'}`}</b>`;
     const others = M.others.filter((o) => o.day <= T && T - o.day <= 90);
     const bySport = {};
     others.forEach((o) => (bySport[o.sport] = (bySport[o.sport] || 0) + 1));
@@ -223,7 +268,7 @@
     const x = c.getContext('2d');
     const Tc = params.get('t') ? Math.max(0, Math.min(M.today, +params.get('t'))) : M.today;
     const sc = FT.grow(M, Tc);
-    FT.render(x, sc, cw, ch, { model: M, dpr: 1, groundFrac: 0.7, topPad: 160, maxZoom: 2.7, rootBottom: ch * 0.86 });
+    FT.render(x, sc, cw, ch, { model: M, dpr: 1, groundFrac: 0.7, topPad: 160, maxZoom: 2.7, rootBottom: ch * 0.86, time: 2600 });
     const st = sc.st, lab = label(sc.season, sc.heat, st.dormant);
     x.setTransform(1, 0, 0, 1, 0, 0);
     // top title band
@@ -263,7 +308,7 @@
     document.body.classList.add('cardmode');
     const go = () => { renderCard(+params.get('w') || 1080, +params.get('h') || 1350); document.body.dataset.ready = '1'; };
     const fonts = document.fonts ? Promise.all([document.fonts.load("650 40px 'Bricolage Grotesque'"),
-      document.fonts.load("500 20px 'Instrument Sans'")]).then(() => document.fonts.ready) : Promise.resolve();
+      document.fonts.load("500 20px 'Instrument Sans'"), document.fonts.load("700 20px Caveat")]).then(() => document.fonts.ready) : Promise.resolve();
     Promise.race([fonts, new Promise((r) => setTimeout(r, 4000))]).then(go, go);
   }
   if (params.get('t')) { T = Math.max(0, Math.min(M.today, +params.get('t'))); slider.value = T; }

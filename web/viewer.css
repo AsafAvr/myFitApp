@@ -50,6 +50,16 @@ header.top .sub { color: var(--ink-2); font-size: 14px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 .stage { position: relative; overflow: hidden; border-radius: var(--radius); aspect-ratio: 4 / 5; background: #9cc3d8; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* film look, composited by the GPU over the living canvas */
+.stage .fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#fxBloom { mix-blend-mode: screen; filter: blur(10px); opacity: .2; }
+#fxGrade { mix-blend-mode: soft-light; }
+#fxLift { mix-blend-mode: lighten; }
+#fxVig { mix-blend-mode: multiply; }
+#fxGrain { inset: -64px; width: calc(100% + 128px); height: calc(100% + 128px); mix-blend-mode: overlay; opacity: .12;
+  background-repeat: repeat; background-size: 128px 128px; animation: grain 0.5s steps(4) infinite; }
+@keyframes grain { 0% { transform: translate(0, 0); } 25% { transform: translate(-37px, 21px); } 50% { transform: translate(18px, -44px); } 75% { transform: translate(-12px, 33px); } }
+@media (prefers-reduced-motion: reduce) { #fxGrain { animation: none; } }
 .stage .badge { position: absolute; left: 12px; top: 12px; background: rgba(255,255,255,.82); color: #2a2419; backdrop-filter: blur(6px); border-radius: 12px; padding: 8px 12px; font-size: 13px; line-height: 1.35; pointer-events: none; max-width: 70%; }
 .stage .badge b { font: 650 18px var(--display); display: block; }
 .tip { position: absolute; pointer-events: none; background: rgba(24,22,16,.92); color: #f6f0e2; border-radius: 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; max-width: 240px; transform: translate(-50%, calc(-100% - 12px)); opacity: 0; transition: opacity .12s; z-index: 3; }

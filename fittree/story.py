@@ -65,6 +65,20 @@ def compose(genome: dict) -> dict:
     if s["streak"] >= 2:
         lines.append(f"Nest: {'🥚' * min(s['streak'], 6)} {s['streak']}-week streak"
                      + (" (longest ever!)" if s["streak"] >= s["longest_streak"] and s["streak"] > 2 else ""))
+    d = s["days_since_last"]
+    if d <= 2:
+        lines.append(f"Soil: freshly watered 💧 (last run {'today' if d == 0 else 'yesterday' if d == 1 else '2 days ago'})")
+    elif d <= 7:
+        lines.append(f"Soil: drying out — {d} days since the last run")
+    else:
+        lines.append(f"Soil: dry and cracking — {d} days without water")
+    # keepsakes unlocked this week
+    then = today - dt.timedelta(days=7)
+    active_then = sum(1 for w in weeks if w["runs"] and dt.date.fromisoformat(w["start"]) <= then - dt.timedelta(days=6))
+    for need, text in ((12, "🪵 Your initial and the year you started are now carved into the trunk"),
+                       (26, "🪢 A swing now hangs from your strongest limb")):
+        if active_then < need <= s["weeks_active"]:
+            lines.append(text)
     new_ms = [m["label"] for m in genome["milestones"] if dt.date.fromisoformat(m["t"][:10]) >= week_ago]
     if new_ms:
         lines.append("Amber rings: ✨ " + " · ".join(new_ms))

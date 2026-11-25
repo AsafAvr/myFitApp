@@ -5,9 +5,9 @@ Stop running and the leaves turn amber, fall, and the tree goes into winter —
 come back and it buds again. The tree is rebuilt from Google Health (or Strava) twice a day and a
 weekly card is sent on Sunday morning with what grew and what to do next.
 
-| A mature habit (20 months) | A new habit (5 weeks) |
-|:---:|:---:|
-| ![](docs/tree-card.jpg) | ![](docs/sapling-card.jpg) |
+| A mature habit, dawn runner | Same tree, evening runner | A new habit (5 weeks) |
+|:---:|:---:|:---:|
+| ![](docs/tree-card.jpg) | ![](docs/evening-card.jpg) | ![](docs/sapling-card.jpg) |
 
 **Time-lapse** — the same runner from the first week to today, through a
 three-week break (autumn → bare winter with fallen leaves) and back to summer:
@@ -27,15 +27,24 @@ Every part is computed from the runs; nothing is decoration-only.
 | 🌳 **Limbs** | **Months.** A strong month (runs vs. your weekly target, km vs. your usual month) grows a long, thick limb. A month without runs leaves a dormant bud. Limbs older than 18 months are shed into the trunk as scars. |
 | 🌱 **Branches** | **Weeks** along each month's limb, sized by that week's strength. |
 | 🪴 **Twigs** | **Single runs**, placed along the week branch by weekday. Length ∝ √distance, kinked by elevation/km (trail runs are gnarly), lifted upward by pace relative to *your* median. Long runs fork. |
-| 🍃 **Leaves** | ≈1.6 leaves per km of that run. |
+| 🍃 **Leaves** | ≈1.6 leafy sprigs per km of that run, lit by the sun of your usual running hour (sunlit side warm, inner crown shaded, backlit at dawn and dusk). |
 | 🎨 **Leaf colour** | **Your last weeks.** Last 10 days of training time vs. your usual 6 weeks: building → *spring flush*, steady → *summer*, fading → *late summer/autumn*, 3 weeks off → *winter* (bare, snow). A spike above ~135 % → *heatwave* (red-tipped leaves). Colour eases in slowly, like a real tree. |
 | 🍒🍎🍊🫐🌟 **Fruit** | **Latest runs** (last 3 weeks): cherries = easy, apple = long, orange = fast/tempo, plums = hilly/trail, golden apple = race. "Long" and "fast" are judged against your own last 10 weeks, so a beginner's 6 km is already an apple. The newest fruit glows. |
 | 🌸 **Blossoms** | Personal bests (longest run yet, fastest 5K/10K/half yet), Strava PRs, and new milestones. |
 | ✨ **Amber** | Milestones in the bark: first 5K/10K/half/marathon (full amber rings), 100/500/1,000 km, 50/100 runs (amber beads). |
 | 🪺 **Nest** | Current weekly streak: a nest from 2 weeks, one egg per week (max 6), a robin moves in at 8 weeks. |
+| 💧 **Soil** | **Watering.** Every run waters the tree: dark, moist soil (with a worm and droplets) for a few days, then it pales and cracks, the grass turns to straw and the leaves start to hang. |
+| 🪵 **Carved initial** | After 12 weeks with a run, your initial and the year you started are carved into the bark. |
+| 🪢 **Swing** | After 26 weeks with a run, a swing hangs from your strongest low limb. |
 | 🕳️ **Knots** | Weeks without a run, at the height of the trunk where they happened. |
 | 🌼 **Meadow** | Cross-training (rides, swims, walks, yoga…) from the last 90 days blooms as wildflowers, coloured by sport. |
 | 🌅 **Sky** | The time of day you usually run (dawn, morning, midday, evening, night). Butterflies = kudos. |
+
+The tree is alive on the page: wind rolls through the crown (limbs, branches and
+twigs each sway on their own), leaves flutter, dust drifts in the light, and the
+freshest leaves glisten. It's painted like an old photograph: warm grade, faded
+blacks, film grain and a soft vignette, with a hand-lettered sign bearing the
+runner's name.
 
 The page is interactive: hover any twig/fruit/root/ring for the run behind it,
 drag the slider or press **Watch it grow** for the time-lapse. Every element is
