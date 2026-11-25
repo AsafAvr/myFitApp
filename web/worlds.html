@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<meta name="description" content="__DESCRIPTION__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=Instrument+Sans:wght@400;500;600&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: one stage that changes world, tabs above, a shared clock below */
+  --bg: #eef1ea; --bg-2: #e3e8dc; --card: #fbfcf8; --ink: #1d281d; --ink-2: #4c5a4b; --ink-3: #7a8778;
+  --line: #d3dacc; --accent: #3c7a3a; --accent-2: #cf8419;
+  --display: "Bricolage Grotesque", "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  --body: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand: Caveat, "Bradley Hand", "Segoe Print", cursive;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0e1310; --bg-2: #161d17; --card: #141a15; --ink: #e5ecdd; --ink-2: #aab7a6; --ink-3: #7c8a79; --line: #263026; --accent: #86c46b; --accent-2: #f0a542; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0e1310; --bg-2: #161d17; --card: #141a15; --ink: #e5ecdd; --ink-2: #aab7a6; --ink-3: #7c8a79; --line: #263026; --accent: #86c46b; --accent-2: #f0a542; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 15px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font: 650 clamp(24px, 4vw, 34px)/1.15 var(--display); letter-spacing: -.015em; margin: 0 0 4px; text-wrap: balance; }
+.lede { color: var(--ink-2); margin: 0 0 16px; max-width: 62ch; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tabs button { appearance: none; font: 500 14px var(--body); color: var(--ink-2); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tabs button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stage { position: relative; width: 100%; max-width: 100%; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden; background: #1b1714; touch-action: none; user-select: none; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font: 600 19px/1.2 var(--hand); color: rgba(255, 245, 225, .82); text-shadow: 0 1px 2px rgba(0,0,0,.5); pointer-events: none; white-space: nowrap; transition: opacity .6s; }
+.hint.paper { color: rgba(80, 55, 30, .75); text-shadow: none; }
+.tip { position: absolute; pointer-events: none; background: rgba(24,22,16,.92); color: #f6f0e2; border-radius: 10px; padding: 7px 10px; font-size: 12.5px; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .12s; }
+.tip.on { opacity: 1; }
+.controls { display: flex; align-items: center; gap: 10px; padding: 12px 2px; flex-wrap: wrap; }
+.controls input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+.date { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; min-width: 100px; text-align: right; }
+.btn { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.about { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
+.about div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.about b { display: block; font: 650 15px var(--display); margin-bottom: 2px; }
+.about span { color: var(--ink-2); font-size: 13.5px; }
+footer { color: var(--ink-3); font-size: 12.5px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">Three little worlds</h1>
+  <p class="lede" id="lede"></p>
+  <nav class="tabs" role="tablist" aria-label="World">
+    <button role="tab" id="tab-jar" data-w="jar">World in a jar</button>
+    <button role="tab" id="tab-planet" data-w="planet">Little planet</button>
+    <button role="tab" id="tab-journal" data-w="journal">Field journal</button>
+  </nav>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="hint" id="hint"></div>
+    <div class="tip" id="tip"></div>
+  </div>
+  <div class="controls">
+    <button class="btn primary" id="play">▶ Watch it grow</button>
+    <input type="range" id="time" min="0" max="100" step="0.25" aria-label="Date">
+    <span class="date" id="date"></span>
+    <button class="btn" id="today">Today</button>
+  </div>
+  <div class="about" id="about"></div>
+  <footer id="foot"></footer>
+</div>
+<script>window.__GENOME__ = /*__GENOME__*/null;</script>
+<script>/*__TREEJS__*/</script>
+<script>/*__WORLDSJS__*/</script>
+</body>
+</html>

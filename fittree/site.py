@@ -33,12 +33,25 @@ def render_page(genome: dict, story: dict) -> str:
     return out
 
 
+def render_worlds(genome: dict) -> str:
+    """The three encapsulated-world prototypes (jar, planet, journal)."""
+    tpl = (WEB / "worlds.html").read_text(encoding="utf-8")
+    name = genome["athlete"].get("first_name") or genome["athlete"].get("name") or "Runner"
+    return (tpl
+            .replace("__TITLE__", html.escape(f"{name}'s little worlds"))
+            .replace("__DESCRIPTION__", html.escape(f"{name}'s running tree as a snow globe, a tiny planet and a field journal."))
+            .replace("/*__GENOME__*/null", _js_json(genome))
+            .replace("/*__TREEJS__*/", (WEB / "tree.js").read_text(encoding="utf-8"))
+            .replace("/*__WORLDSJS__*/", (WEB / "worlds.js").read_text(encoding="utf-8")))
+
+
 def write_page(genome: dict, story: dict, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     p = out_dir / "index.html"
     p.write_text(render_page(genome, story), encoding="utf-8")
     (out_dir / "genome.json").write_text(json.dumps(genome, ensure_ascii=False, indent=1), encoding="utf-8")
     (out_dir / "story.json").write_text(json.dumps(story, ensure_ascii=False, indent=1), encoding="utf-8")
+    (out_dir / "worlds.html").write_text(render_worlds(genome), encoding="utf-8")
     return p
 
 

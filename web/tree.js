@@ -648,7 +648,8 @@
     const Lt = LIGHT[period] || LIGHT.morning;
     const v = layout(S, W, Hc, opts);
     S.view = v;
-    const R = { S, v, dpr, W, H: Hc, period, Lt, M, seed: M ? M.seed : 's', lite: !!opts.lite, post: opts.post !== false,
+    const treeOnly = opts.layers === 'tree';
+    const R = { S, v, dpr, W, H: Hc, period, Lt, M, seed: M ? M.seed : 's', lite: !!opts.lite, post: opts.post !== false && !treeOnly, treeOnly,
       night: period === 'night', opts, horizon: v.gy - Math.max(24, Hc * 0.034) };
     R.sun = { x: W * Lt.sun[0], y: v.gy * Lt.sun[1] };
     const sw = { x: (R.sun.x - v.cx) / v.z, y: (R.sun.y - v.gy) / v.z };
@@ -942,7 +943,7 @@
     ctx.restore();
   }
   function post(ctx, R, t) {
-    if (R.lite) return;
+    if (R.lite || R.treeOnly) return;
     const { cw, ch, Lt, S } = R;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (Lt.rays > 0 && !S.winter) rays(ctx, R, t);
@@ -968,6 +969,7 @@
 
   // --------------------------------------------------------- background
   function drawBackground(c, R) {
+    if (R.treeOnly) { canopyShade(c, R); return; }   // just the tree, on a transparent ground
     const rs = rng(R.seed + ':sky');
     screenT(c, R);
     sky(c, R, rs);
@@ -1398,6 +1400,7 @@
   // -------------------------------------------------------- foreground
   function drawForeground(c, R) {
     const S = R.S, v = R.v;
+    if (R.treeOnly) return;
     worldT(c, R);
     S.fallen.forEach((f) => {
       const sc = f.size * v.z * R.dpr, a = f.ang;
@@ -1708,7 +1711,8 @@
     for (let k = 0; k < 3; k++) { const a = rr() * TAU; ctx.beginPath(); ctx.moveTo(c + Math.cos(a) * maxR * 0.2, c + Math.sin(a) * maxR * 0.2); ctx.lineTo(c + Math.cos(a) * maxR * (0.5 + rr() * 0.4), c + Math.sin(a) * maxR * (0.5 + rr() * 0.4)); ctx.stroke(); }
   }
 
-  const api = { prepare, grow, render, prepareRender, drawFrame, postStyle, noise, Ambient, drawRings, stateAt, woodAt, KIND_LABEL, leafCount, rng, hash, dayIdx };
+  const geom = { outline, samplePolyline, SEASON_STOPS, interpStops };
+  const api = { geom, prepare, grow, render, prepareRender, drawFrame, postStyle, noise, Ambient, drawRings, stateAt, woodAt, KIND_LABEL, leafCount, rng, hash, dayIdx };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.FitTree = api;
 })(typeof window !== 'undefined' ? window : globalThis);

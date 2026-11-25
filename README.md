@@ -51,6 +51,18 @@ drag the slider or press **Watch it grow** for the time-lapse. Every element is
 seeded by what it represents (athlete + run id), so the tree is perfectly
 stable and scrubbing to any past date regrows exactly the tree you had then.
 
+## Little worlds (prototypes)
+
+`site/<key>/worlds.html` grows the same tree into three self-contained worlds,
+inspired by hand-made procedural worlds like
+[Brushwild](https://kevintngo.github.io/procedural-rpg/):
+
+| | |
+|---|---|
+| **World in a jar** | The tree inside a snow globe on a turned-wood base with an engraved brass plaque. Drag to shake it: petals, seeds, leaves, snow or fireflies swirl depending on your last weeks. After 4 days without a run the glass mists over; you can wipe it, but only running keeps it clear. |
+| **Little planet** | The tree on a tiny planet that grows with your kilometres. Drag to spin; day and night sweep across it. Weekday roots reach a core that glows with your streak, a little runner does laps (faster after a bigger month), and milestones orbit as moons. |
+| **Field journal** | The tree drawn in graphite and coloured pencil on a notebook page, the lines re-laid six times a second like a hand-drawn film, with hand-written notes pointing at what each part means. |
+
 ## Quick start
 
 ```bash
