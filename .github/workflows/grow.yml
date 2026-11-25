@@ -61,10 +61,15 @@ jobs:
           npm install --no-save playwright@1.48.2
           npx playwright install --with-deps chromium
 
+      - name: Build the habit valley (Brushwild fork)
+        run: |
+          npm ci --prefix valley
+          npm run build --prefix valley
+
       - name: Sync new workouts and regrow
         run: |
           python -m fittree sync
-          python -m fittree build --png
+          python -m fittree build --png --valley
 
       - name: Send the weekly card (Sunday morning, or on demand)
         run: |

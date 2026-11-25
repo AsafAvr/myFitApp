@@ -51,6 +51,24 @@ drag the slider or press **Watch it grow** for the time-lapse. Every element is
 seeded by what it represents (athlete + run id), so the tree is perfectly
 stable and scrubbing to any past date regrows exactly the tree you had then.
 
+## The Valley (game): a fork of Brushwild
+
+`valley/` is a fork of [Brushwild](https://github.com/kevintngo/procedural-rpg)
+(MIT), an open world drawn in pen and coloured pencil entirely by shaders.
+Its home town becomes your valley: a place per habit, sized by that habit's
+stage, a great tree in the middle whose 3D shape is grown from the runs, and a
+keeper beside each place. Talk to the tree's keeper and the full tree opens,
+drawn in Brushwild's own pencil hand with every run on it. See
+[valley/README.md](valley/README.md).
+
+```bash
+npm ci --prefix valley && npm run build --prefix valley
+```
+
+```bash
+python -m fittree build --valley     # -> site/<key>/valley/ with that runner's data
+```
+
 ## The valley (prototype): a world of habits
 
 `site/<key>/world.html` turns every habit into a place on a hand-drawn floating

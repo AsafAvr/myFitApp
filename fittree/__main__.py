@@ -16,6 +16,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import shutil
 import sys
 import urllib.parse
 from pathlib import Path
@@ -192,7 +193,22 @@ def cmd_demo(a):
     print(f"· {a.key}: {len(acts)} synthetic activities ({a.kind})")
 
 
-def build_one(key: str, cfg: dict, png: bool, as_of: dt.date | None = None) -> tuple[dict, dict, Path]:
+VALLEY_DIST = ROOT / "valley" / "dist"
+
+
+def copy_valley(g: dict, out: Path) -> bool:
+    """The habit valley (a fork of Brushwild) next to the tree page, with this runner's data."""
+    if not (VALLEY_DIST / "index.html").exists():
+        return False
+    dest = out / "valley"
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(VALLEY_DIST, dest, ignore=shutil.ignore_patterns("*.map"))
+    (dest / "genome.json").write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
+    return True
+
+
+def build_one(key: str, cfg: dict, png: bool, as_of: dt.date | None = None, valley: bool = False) -> tuple[dict, dict, Path]:
     ac = athlete_cfg(cfg, key)
     acts = load_acts(key)
     prof_p = DATA / key / "athlete.json"
@@ -208,6 +224,8 @@ def build_one(key: str, cfg: dict, png: bool, as_of: dt.date | None = None) -> t
     s = story.compose(g)
     out = SITE / key
     page = site.write_page(g, s, out)
+    if valley and not copy_valley(g, out):
+        print("  (valley/dist missing: run `npm ci && npm run build` in valley/ first)")
     if png:
         site.snapshot(page, out / "tree.png")
         (out / f"tree-{g['as_of']}.png").write_bytes((out / "tree.png").read_bytes())
@@ -219,7 +237,7 @@ def cmd_build(a):
     keys = a.keys or [x["key"] for x in cfg["athletes"] if (DATA / x["key"] / "activities.json").exists()]
     entries = []
     for key in keys:
-        g, s, page = build_one(key, cfg, a.png, dt.date.fromisoformat(a.as_of) if a.as_of else None)
+        g, s, page = build_one(key, cfg, a.png, dt.date.fromisoformat(a.as_of) if a.as_of else None, getattr(a, "valley", False))
         sm = g.get("summary", {})
         entries.append({"key": key, "name": g["athlete"]["first_name"],
                         "line": f"{sm.get('runs', 0)} runs · {sm.get('km', 0):.0f} km · {sm.get('season_label', '')}"})
@@ -247,7 +265,7 @@ def cmd_send(a):
 
 def cmd_weekly(a):
     cmd_sync(argparse.Namespace(keys=None, full=False))
-    cmd_build(argparse.Namespace(keys=None, png=True, as_of=None))
+    cmd_build(argparse.Namespace(keys=None, png=True, as_of=None, valley=True))
     if a.send:
         cmd_send(argparse.Namespace(keys=None, dry_run=a.dry_run))
 
@@ -274,6 +292,7 @@ def main(argv=None):
     s.add_argument("--name"); s.add_argument("--seed", type=int, default=7); s.set_defaults(fn=cmd_demo)
     s = sp.add_parser("build", help="build tree pages (and PNG cards with --png)")
     s.add_argument("keys", nargs="*"); s.add_argument("--png", action="store_true"); s.add_argument("--as-of")
+    s.add_argument("--valley", action="store_true", help="also ship the habit valley (valley/dist) with each runner's data")
     s.set_defaults(fn=cmd_build)
     s = sp.add_parser("send", help="send the weekly card")
     s.add_argument("keys", nargs="*"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_send)

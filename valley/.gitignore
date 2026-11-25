@@ -1,0 +1,5 @@
+dist/
+.DS_Store
+.claude/
+node_modules/
+trailer/out/
